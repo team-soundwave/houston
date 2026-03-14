@@ -6,6 +6,7 @@ __pycache__/
 
 apps/web/node_modules/
 apps/web/dist/
+*.tsbuildinfo
 
 var/
 var-smoke/
