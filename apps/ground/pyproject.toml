@@ -1,0 +1,16 @@
+[project]
+name = "houston-ground"
+version = "0.1.0"
+description = "Ground backend and live hub for Houston"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.118.0",
+  "pydantic-settings>=2.11.0",
+  "python-multipart>=0.0.20",
+  "uvicorn>=0.37.0",
+  "houston-protocol",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

@@ -1,0 +1,271 @@
+import { Link } from "react-router-dom";
+import { formatDistanceToNow } from "date-fns";
+import { AlertTriangle, Database, Satellite, Waves, Clock, Activity, ImageIcon, Maximize2, ExternalLink, Loader2 } from "lucide-react";
+import { Bar, BarChart, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { Separator } from "../components/ui/separator";
+import { artifactUrl, useTelemetry } from "../contexts/TelemetryContext";
+import { captureInterval, capturingEnabled, deviceMode, nextCaptureDueAt } from "../lib/device-runtime";
+import { buildLinkMetrics, formatBytes } from "../lib/link-metrics";
+import MatrixHeatmap from "../components/captures/MatrixHeatmap";
+import { cn } from "../lib/utils";
+import { useState, useEffect } from "react";
+
+export default function Overview() {
+  const { devices, captures, socketConnected, systemTime } = useTelemetry();
+  const [imageState, setImageState] = useState<'loading' | 'loaded' | 'error'>('loading');
+  const now = new Date(systemTime);
+  const orderedCaptures = [...captures].sort(
+    (left, right) => new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime()
+  );
+  const onlineDevices = devices.filter((device) => device.connected);
+  const primaryDevice = onlineDevices[0] ?? devices[0] ?? null;
+  const latestCapture = orderedCaptures[0] ?? null;
+  const nextCapture = primaryDevice ? nextCaptureDueAt(primaryDevice) : null;
+  const isCapturing = primaryDevice ? capturingEnabled(primaryDevice) : false;
+  const linkMetrics = buildLinkMetrics(captures, devices);
+  
+  const nextCaptureMs = nextCapture ? new Date(nextCapture).getTime() - now.getTime() : null;
+  const nextCaptureLabel =
+    nextCaptureMs === null
+      ? "--:--"
+      : nextCaptureMs <= 0
+        ? "Now"
+        : `${Math.floor(nextCaptureMs / 60000)}m ${Math.floor((nextCaptureMs % 60000) / 1000)}s`;
+
+  const opticalUrl = latestCapture ? artifactUrl(latestCapture, "raw") : null;
+
+  const trendData = [...orderedCaptures].slice(0, 10).reverse().map(c => ({
+    time: new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    intensity: c.max_intensity,
+    objects: c.region_count
+  }));
+
+  useEffect(() => {
+    if (opticalUrl) {
+      setImageState('loading');
+    }
+  }, [latestCapture?.capture_id, opticalUrl]);
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shrink-0">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">System Overview</h1>
+          <p className="text-sm text-muted-foreground font-medium">Network status and latest transmission telemetry.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={socketConnected ? "outline" : "destructive"} className="px-2.5 py-1 gap-2 font-bold text-[10px] uppercase tracking-wider">
+            <div className={cn("w-1.5 h-1.5 rounded-full", socketConnected ? "bg-emerald-500" : "bg-destructive")} />
+            Ground Link: {socketConnected ? "Connected" : "Offline"}
+          </Badge>
+          <Badge variant="outline" className="px-2.5 py-1 gap-2 font-bold text-[10px] uppercase tracking-wider">
+            Active Nodes: {onlineDevices.length} / {devices.length}
+          </Badge>
+        </div>
+      </div>
+
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-12">
+        {/* Main Content */}
+        <div className="xl:col-span-8 space-y-6 min-w-0">
+          <Card className="shadow-none border-border/60">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between space-y-2 sm:space-y-0 pb-4 border-b bg-muted/10">
+              <div className="space-y-1">
+                <CardTitle className="text-base font-bold uppercase tracking-tight">Latest Uplink</CardTitle>
+                <CardDescription className="text-[10px] font-mono font-bold opacity-60">
+                  {latestCapture ? latestCapture.capture_id : "NO_DATA_INGEST"}
+                </CardDescription>
+              </div>
+              {latestCapture && (
+                <Button variant="outline" size="sm" className="h-8 gap-2 text-[10px] font-bold uppercase tracking-wider" asChild>
+                  <Link to={`/captures?capture=${latestCapture.capture_id}`}>
+                    Report Details <ExternalLink className="h-3 w-3" />
+                  </Link>
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent className="p-0">
+              {latestCapture ? (
+                <Tabs defaultValue="optical" className="w-full">
+                  <div className="px-4 py-2 border-b bg-muted/5 flex items-center justify-between">
+                    <TabsList className="h-8 bg-transparent p-0 gap-1">
+                      <TabsTrigger value="optical" className="h-7 px-3 text-[10px] font-bold uppercase tracking-wider gap-2">
+                        <ImageIcon className="h-3 w-3" /> Optical
+                      </TabsTrigger>
+                      <TabsTrigger value="heatmap" className="h-7 px-3 text-[10px] font-bold uppercase tracking-wider gap-2">
+                        <Maximize2 className="h-3 w-3" /> Heatmap
+                      </TabsTrigger>
+                    </TabsList>
+                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-2 opacity-60 hidden sm:block">
+                      Peak Flux: {latestCapture.max_intensity.toFixed(2)}
+                    </div>
+                  </div>
+
+                  <div className="p-4 sm:p-6 space-y-6">
+                    <div className="aspect-video relative rounded-lg border bg-muted/20 overflow-hidden flex items-center justify-center">
+                      <TabsContent value="optical" className="m-0 w-full h-full flex items-center justify-center outline-none">
+                        {opticalUrl ? (
+                          <>
+                            {imageState === 'loading' && (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/40" />
+                              </div>
+                            )}
+                            <img 
+                              src={opticalUrl} 
+                              alt="optical-sensor" 
+                              onLoad={() => setImageState('loaded')}
+                              onError={() => setImageState('error')}
+                              className={cn(
+                                "max-h-full max-w-full object-contain transition-opacity duration-300",
+                                imageState === 'loaded' ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {imageState === 'error' && (
+                              <div className="text-xs text-muted-foreground text-center p-4">
+                                <AlertTriangle className="h-5 w-5 mx-auto mb-2 opacity-50" />
+                                Source Offline
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="text-xs text-muted-foreground">Source mapping missing</div>
+                        )}
+                      </TabsContent>
+                      
+                      <TabsContent value="heatmap" className="m-0 w-full h-full outline-none p-4">
+                        <MatrixHeatmap matrix={latestCapture.matrix_data} />
+                      </TabsContent>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="p-3 rounded-lg border bg-muted/5">
+                        <div className="text-[9px] font-bold uppercase text-muted-foreground tracking-widest mb-1">Total Hits</div>
+                        <div className="text-xl font-bold tracking-tight">{latestCapture.region_count}</div>
+                      </div>
+                      <div className="p-3 rounded-lg border bg-muted/5">
+                        <div className="text-[9px] font-bold uppercase text-muted-foreground tracking-widest mb-1">Max Intensity</div>
+                        <div className="text-xl font-bold tracking-tight">{latestCapture.max_intensity.toFixed(2)}</div>
+                      </div>
+                      <div className="p-3 rounded-lg border bg-muted/5">
+                        <div className="text-[9px] font-bold uppercase text-muted-foreground tracking-widest mb-1">Ingest Delay</div>
+                        <div className="text-sm font-bold pt-1 truncate">
+                          {formatDistanceToNow(new Date(latestCapture.timestamp), { addSuffix: true })}
+                        </div>
+                      </div>
+                    </div>
+                    </div>
+                    </Tabs>
+                    ) : (
+                    <div className="py-32 text-center">
+                    <Database className="h-10 w-10 text-muted-foreground/20 mx-auto mb-4" />
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground/40">Searching for broadcast signal...</p>
+                    </div>
+                    )}
+                    </CardContent>
+                    </Card>
+
+                    <Card className="shadow-none border-border/60">
+                    <CardHeader className="pb-4 border-b bg-muted/10">
+                    <CardTitle className="text-sm font-bold uppercase tracking-tight">Intensity Trend (Last 10 Captures)</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 h-64">
+                    {trendData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={trendData}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} vertical={false} />
+                    <XAxis dataKey="time" fontSize={10} tickLine={false} axisLine={false} />
+                    <YAxis fontSize={10} tickLine={false} axisLine={false} />
+                    <Tooltip 
+                      cursor={{stroke: 'var(--muted)', strokeWidth: 2}}
+                      contentStyle={{ borderRadius: '8px', fontSize: '12px', border: '1px solid var(--border)', background: 'var(--card)' }}
+                    />
+                    <Line type="monotone" dataKey="intensity" stroke="hsl(var(--primary))" strokeWidth={3} dot={{ r: 3, fill: "hsl(var(--primary))" }} activeDot={{ r: 5 }} />
+                    </LineChart>
+                    </ResponsiveContainer>
+                    ) : (
+                    <div className="h-full flex items-center justify-center text-xs text-muted-foreground italic">
+                    Not enough data for trending
+                    </div>
+                    )}
+                    </CardContent>
+                    </Card>
+                    </div>
+
+                    {/* Sidebar Column */}
+                    <div className="xl:col-span-4 space-y-6">
+          <Card className="shadow-none border-border/60">
+            <CardHeader className="pb-4 bg-muted/10 border-b">
+              <CardTitle className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Active Node Stats</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-4">
+              {primaryDevice ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between text-xs p-2.5 rounded border bg-card shadow-sm">
+                    <span className="text-muted-foreground font-bold uppercase tracking-tight">Identifier</span>
+                    <span className="font-mono font-bold text-foreground">{primaryDevice.device_id}</span>
+                  </div>
+                  
+                  <div className="space-y-2 px-1">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-muted-foreground font-bold uppercase tracking-tight">Ops Mode</span>
+                      <span className="font-bold text-foreground">{deviceMode(primaryDevice)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-muted-foreground font-bold uppercase tracking-tight">Stream</span>
+                      <span className={cn("font-bold", isCapturing ? "text-emerald-600" : "text-muted-foreground")}>
+                        {isCapturing ? "BROADCASTING" : "SUSPENDED"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-muted-foreground font-bold uppercase tracking-tight">Cycle</span>
+                      <span className="font-bold text-foreground">{captureInterval(primaryDevice)}s</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t mt-2">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Next Uplink</span>
+                      <Badge variant="secondary" className="font-mono font-bold text-xs h-6">{nextCaptureLabel}</Badge>
+                    </div>
+                  </div>
+
+                  <Button variant="outline" size="sm" className="w-full text-[10px] font-bold uppercase tracking-widest h-9" asChild>
+                    <Link to="/devices">Node Configuration</Link>
+                  </Button>
+                </div>
+              ) : (
+                <div className="py-8 text-center text-xs text-muted-foreground italic font-medium">No active node constellations.</div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-none border-border/60">
+            <CardHeader className="pb-4 bg-muted/10 border-b">
+              <CardTitle className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Link Metrics</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3">
+              {[
+                { label: "Data Ingested", value: formatBytes(linkMetrics.uploadedBytes) },
+                { label: "Buffer Depth", value: formatBytes(linkMetrics.pendingBytes) },
+                { label: "Transfer Rate", value: `${formatBytes(linkMetrics.estimatedBytesPerSecond)}/s`, color: "text-emerald-600" },
+              ].map((m, idx) => (
+                <div key={idx} className="flex items-center justify-between border-b border-border/40 pb-2 last:border-0 last:pb-0">
+                  <span className="text-[10px] font-bold uppercase tracking-tight text-muted-foreground">{m.label}</span>
+                  <span className={cn("font-mono text-xs font-bold", m.color)}>{m.value}</span>
+                </div>
+              ))}
+              <div className="pt-2">
+                <div className="flex items-center justify-between text-[10px] text-muted-foreground/60 font-bold uppercase tracking-widest">
+                  <span>Last Handshake</span>
+                  <span>{primaryDevice?.last_seen_at ? formatDistanceToNow(new Date(primaryDevice.last_seen_at), { addSuffix: true }) : "Never"}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}

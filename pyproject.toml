@@ -1,0 +1,14 @@
+[tool.uv.workspace]
+members = [
+  "packages/protocol",
+  "apps/edge",
+  "apps/ground",
+]
+
+[tool.uv.sources]
+houston-protocol = { workspace = true }
+
+[tool.uv]
+dev-dependencies = [
+  "pytest>=8.4.2",
+]
