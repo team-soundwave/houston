@@ -5,7 +5,6 @@ __pycache__/
 *.pyc
 
 apps/web/node_modules/
-apps/web/dist/
 *.tsbuildinfo
 
 var/

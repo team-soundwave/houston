@@ -32,8 +32,7 @@ def main() -> int:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Houston dev launcher")
-    parser.add_argument("role", choices=["ground", "edge", "all"])
-    parser.add_argument("--peer-ip", help="IP address of the other machine")
+    parser.add_argument("role", choices=["ground", "edge", "all"]); parser.add_argument("--peer-ip", help="IP address of the other machine")
     return parser.parse_args()
 
 def peer_label(role: str) -> str:
@@ -72,27 +71,23 @@ def print_summary(role: str, local_ip: str, peer_ip: str | None) -> None:
 
 def ensure_dependencies(role: str) -> None:
     run_step(["uv", "sync", "--all-packages"], ROOT, "Syncing Python packages")
-    if role in {"ground", "all"} and not (WEB_DIR / "node_modules").exists():
+    if should_run_vite(role) and not (WEB_DIR / "node_modules").exists():
         run_step(["npm", "install"], WEB_DIR, "Installing frontend packages")
     if role in {"edge", "all"}:
         ensure_edge_dependencies()
 
 def run_ground(local_ip: str, peer_ip: str) -> int:
     env = ground_env(local_ip, peer_ip)
-    processes = ground_processes(env)
-    print(f"Open the dashboard at http://{local_ip}:{DEFAULT_PORTS['ground_web']}")
+    processes = ground_processes(env, "ground")
+    print(f"Open the dashboard at {dashboard_url(local_ip, role='ground')}")
     return wait_forever(processes)
 
 def run_edge(local_ip: str, peer_ip: str) -> int:
-    env = edge_env(peer_ip)
-    processes = edge_processes(env)
-    return wait_forever(processes)
+    return wait_forever(edge_processes(edge_env(peer_ip)))
 
 def run_all(local_ip: str) -> int:
-    ground = ground_env(local_ip, local_ip)
-    edge = edge_env("127.0.0.1")
-    processes = [*ground_processes(ground), *edge_processes(edge)]
-    print(f"Open the dashboard at http://{local_ip}:{DEFAULT_PORTS['ground_web']}")
+    processes = [*ground_processes(ground_env(local_ip, local_ip), "all"), *edge_processes(edge_env("127.0.0.1"))]
+    print(f"Open the dashboard at {dashboard_url(local_ip, role='all')}")
     return wait_forever(processes)
 
 def ground_env(local_ip: str, peer_ip: str) -> dict[str, str]:
@@ -104,21 +99,25 @@ def ground_env(local_ip: str, peer_ip: str) -> dict[str, str]:
     env["HOUSTON_EDGE_HINT_IP"] = peer_ip
     return env
 
-def ground_processes(env: dict[str, str]) -> list[subprocess.Popen[str]]:
-    return [
+def ground_processes(env: dict[str, str], role: str) -> list[subprocess.Popen[str]]:
+    processes = [
         start_process(
             ["uv", "run", "--package", "houston-ground", "uvicorn", "houston_ground.main:app", "--host", "0.0.0.0", "--port", DEFAULT_PORTS["ground_api"]],
             ROOT,
             env,
             "ground",
-        ),
-        start_process(
-            ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", DEFAULT_PORTS["ground_web"]],
-            WEB_DIR,
-            env,
-            "web",
-        ),
+        )
     ]
+    if should_run_vite(role):
+        processes.append(
+            start_process(
+                ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", DEFAULT_PORTS["ground_web"]],
+                WEB_DIR,
+                env,
+                "web",
+            )
+        )
+    return processes
 
 def edge_env(peer_ip: str) -> dict[str, str]:
     env = os.environ.copy()
@@ -174,8 +173,7 @@ def ensure_edge_dependencies() -> None:
         ensure_python_module(sys.executable, "picamera2", ["-m", "pip", "install", "picamera2"], required=False)
         return
     venv_python = ROOT / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
-    if venv_python.exists():
-        ensure_python_module(str(venv_python), "picamera2", ["-m", "pip", "install", "picamera2"], required=False)
+    if venv_python.exists(): ensure_python_module(str(venv_python), "picamera2", ["-m", "pip", "install", "picamera2"], required=False)
 
 
 def ensure_python_module(python_exe: str, module: str, install_args: list[str], required: bool = True) -> None:
@@ -188,6 +186,12 @@ def ensure_python_module(python_exe: str, module: str, install_args: list[str], 
         if required:
             raise
         print(f"Warning: unable to install optional dependency {module}.")
+
+def should_run_vite(role: str) -> bool:
+    return role == "ground" and shutil.which("npm") is not None
+
+def dashboard_url(local_ip: str, role: str) -> str:
+    return f"http://{local_ip}:{DEFAULT_PORTS['ground_web' if should_run_vite(role) else 'ground_api']}"
 
 
 def run_step(command: list[str], cwd: Path, label: str) -> None:

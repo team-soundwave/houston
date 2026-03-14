@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
-import { AlertTriangle, Database, Satellite, Waves, Clock, Activity, ImageIcon, Maximize2, ExternalLink, Loader2 } from "lucide-react";
-import { Bar, BarChart, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
+import { AlertTriangle, Database, Satellite, Waves, Clock, Activity, ImageIcon, Maximize2, ExternalLink, Loader2, CloudDownload, Zap, BarChart3, SignalHigh } from "lucide-react";
+import { Bar, BarChart, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Area, AreaChart } from "recharts";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
@@ -12,10 +12,10 @@ import { captureInterval, capturingEnabled, deviceMode, nextCaptureDueAt } from 
 import { buildLinkMetrics, formatBytes } from "../lib/link-metrics";
 import MatrixHeatmap from "../components/captures/MatrixHeatmap";
 import { cn } from "../lib/utils";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 export default function Overview() {
-  const { devices, captures, socketConnected, systemTime } = useTelemetry();
+  const { devices, captures, socketConnected, systemTime, fetchCapture } = useTelemetry();
   const [imageState, setImageState] = useState<'loading' | 'loaded' | 'error'>('loading');
   const now = new Date(systemTime);
   const orderedCaptures = [...captures].sort(
@@ -37,6 +37,17 @@ export default function Overview() {
         : `${Math.floor(nextCaptureMs / 60000)}m ${Math.floor((nextCaptureMs % 60000) / 1000)}s`;
 
   const opticalUrl = latestCapture ? artifactUrl(latestCapture, "raw") : null;
+  const rawArtifact = latestCapture?.artifacts?.find(a => a.kind === "raw");
+  const isUploading = rawArtifact && !rawArtifact.uploaded;
+
+  // Derive throughput history from recent captures
+  const linkHistory = useMemo(() => {
+    return [...orderedCaptures].slice(0, 20).reverse().map(c => ({
+      time: new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      size: c.artifacts.reduce((acc, a) => acc + (a.size_bytes / 1024), 0),
+      dets: c.region_count
+    }));
+  }, [orderedCaptures]);
 
   const trendData = [...orderedCaptures].slice(0, 10).reverse().map(c => ({
     time: new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -44,11 +55,21 @@ export default function Overview() {
     objects: c.region_count
   }));
 
+  // AUTO-POLL: If latest is uploading, refresh it
   useEffect(() => {
-    if (opticalUrl) {
+    if (latestCapture && isUploading) {
+      const timer = window.setInterval(() => {
+        fetchCapture(latestCapture.capture_id);
+      }, 1500);
+      return () => window.clearInterval(timer);
+    }
+  }, [latestCapture?.capture_id, isUploading, fetchCapture]);
+
+  useEffect(() => {
+    if (opticalUrl || isUploading) {
       setImageState('loading');
     }
-  }, [latestCapture?.capture_id, opticalUrl]);
+  }, [latestCapture?.capture_id, opticalUrl, isUploading]);
 
   return (
     <div className="space-y-6">
@@ -106,9 +127,17 @@ export default function Overview() {
                   </div>
 
                   <div className="p-4 sm:p-6 space-y-6">
-                    <div className="aspect-video relative rounded-lg border bg-muted/20 overflow-hidden flex items-center justify-center">
+                    <div className="aspect-video relative rounded-lg border bg-muted/20 overflow-hidden flex items-center justify-center shadow-inner">
                       <TabsContent value="optical" className="m-0 w-full h-full flex items-center justify-center outline-none">
-                        {opticalUrl ? (
+                        {isUploading ? (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-muted/10">
+                            <CloudDownload className="h-10 w-10 text-primary animate-bounce opacity-40" />
+                            <div className="text-center">
+                              <p className="text-xs font-bold uppercase tracking-widest">Synchronizing Payload</p>
+                              <p className="text-[10px] text-muted-foreground mt-1">Awaiting artifact verified upload...</p>
+                            </div>
+                          </div>
+                        ) : opticalUrl ? (
                           <>
                             {imageState === 'loading' && (
                               <div className="absolute inset-0 flex items-center justify-center">
@@ -133,7 +162,7 @@ export default function Overview() {
                             )}
                           </>
                         ) : (
-                          <div className="text-xs text-muted-foreground">Source mapping missing</div>
+                          <div className="text-xs text-muted-foreground italic">Optical source map pending ingest</div>
                         )}
                       </TabsContent>
                       
@@ -158,46 +187,52 @@ export default function Overview() {
                         </div>
                       </div>
                     </div>
-                    </div>
-                    </Tabs>
-                    ) : (
-                    <div className="py-32 text-center">
-                    <Database className="h-10 w-10 text-muted-foreground/20 mx-auto mb-4" />
-                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground/40">Searching for broadcast signal...</p>
-                    </div>
-                    )}
-                    </CardContent>
-                    </Card>
+                  </div>
+                </Tabs>
+              ) : (
+                <div className="py-32 text-center">
+                  <Database className="h-10 w-10 text-muted-foreground/20 mx-auto mb-4" />
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground/40">Searching for broadcast signal...</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-                    <Card className="shadow-none border-border/60">
-                    <CardHeader className="pb-4 border-b bg-muted/10">
-                    <CardTitle className="text-sm font-bold uppercase tracking-tight">Intensity Trend (Last 10 Captures)</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-4 h-64">
-                    {trendData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={trendData}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} vertical={false} />
-                    <XAxis dataKey="time" fontSize={10} tickLine={false} axisLine={false} />
-                    <YAxis fontSize={10} tickLine={false} axisLine={false} />
-                    <Tooltip 
-                      cursor={{stroke: 'var(--muted)', strokeWidth: 2}}
-                      contentStyle={{ borderRadius: '8px', fontSize: '12px', border: '1px solid var(--border)', background: 'var(--card)' }}
-                    />
-                    <Line type="monotone" dataKey="intensity" stroke="hsl(var(--primary))" strokeWidth={3} dot={{ r: 3, fill: "hsl(var(--primary))" }} activeDot={{ r: 5 }} />
-                    </LineChart>
-                    </ResponsiveContainer>
-                    ) : (
-                    <div className="h-full flex items-center justify-center text-xs text-muted-foreground italic">
-                    Not enough data for trending
-                    </div>
-                    )}
-                    </CardContent>
-                    </Card>
-                    </div>
+          {/* Link Telemetry Graph */}
+          <Card className="shadow-none border-border/60 overflow-hidden bg-card">
+            <CardHeader className="p-4 border-b bg-muted/10 flex flex-row items-center justify-between">
+              <div className="space-y-1">
+                <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
+                  <Zap className="h-3.5 w-3.5 text-primary" /> Link Telemetry & Throughput
+                </CardTitle>
+              </div>
+              <Badge variant="outline" className="text-[9px] font-bold">LIVE_INGEST</Badge>
+            </CardHeader>
+            <CardContent className="p-6 h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={linkHistory}>
+                  <defs>
+                    <linearGradient id="linkGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.15}/>
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
+                  <XAxis dataKey="time" fontSize={9} tickLine={false} axisLine={false} minTickGap={30} />
+                  <YAxis fontSize={9} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}KB`} />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '8px', fontSize: '11px', border: '1px solid var(--border)', background: 'var(--card)' }}
+                  />
+                  <Area type="monotone" dataKey="size" name="Payload Size" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#linkGrad)" />
+                  <Line type="step" dataKey="dets" name="Hit Density" stroke="rgba(100,116,139,0.4)" strokeWidth={1} dot={false} strokeDasharray="4 4" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
 
-                    {/* Sidebar Column */}
-                    <div className="xl:col-span-4 space-y-6">
+        {/* Sidebar */}
+        <div className="xl:col-span-4 space-y-6">
           <Card className="shadow-none border-border/60">
             <CardHeader className="pb-4 bg-muted/10 border-b">
               <CardTitle className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Active Node Stats</CardTitle>
@@ -243,7 +278,9 @@ export default function Overview() {
 
           <Card className="shadow-none border-border/60">
             <CardHeader className="pb-4 bg-muted/10 border-b">
-              <CardTitle className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Link Metrics</CardTitle>
+              <CardTitle className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center justify-between">
+                Link Metrics <SignalHigh className="h-3.5 w-3.5" />
+              </CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-3">
               {[

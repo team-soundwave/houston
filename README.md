@@ -192,9 +192,12 @@ bash ./scripts/dev-all.sh
 That starts:
 
 - ground backend on `8000`
-- web UI on `5173`
+- web UI served from ground on `8000`
 - edge service on `8001`
 - `cubesat/main.py` too, if bridge mode is available
+
+In `all` mode, the Pi does not need `npm`. The ground backend serves the
+prebuilt frontend from `apps/web/dist`.
 
 And the Windows laptop flow is:
 
