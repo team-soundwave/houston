@@ -76,6 +76,18 @@ async def capture_detail(capture_id: str) -> dict:
     return capture.model_dump(mode="json")
 
 
+@app.delete("/api/captures/{capture_id}")
+async def delete_capture(capture_id: str) -> dict[str, str]:
+    capture = db.delete_capture(capture_id)
+    if capture is None:
+        raise HTTPException(status_code=404, detail="capture not found")
+    storage.delete_capture(capture.device_id, capture.capture_id)
+    payload = {"device_id": capture.device_id, "capture_id": capture.capture_id}
+    db.add_event("capture_deleted", payload)
+    await ui_hub.emit("capture_deleted", payload)
+    return {"status": "deleted", "capture_id": capture.capture_id}
+
+
 @app.get("/api/events")
 async def list_events(limit: int = Query(default=50, le=200)) -> list[dict]:
     return db.list_events(limit)

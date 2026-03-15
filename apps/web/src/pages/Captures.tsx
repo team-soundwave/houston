@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, Line, LineChart, Scatter, ScatterChart, ZAxis, Area, AreaChart } from "recharts";
-import { Download, FileJson, History, ImageIcon, Loader2, Waves, LayoutGrid, Maximize2, Activity, Search, Target, Play, Pause, AlertTriangle, CloudDownload, TrendingUp, Zap, BarChart3, SignalHigh } from "lucide-react";
+import { Download, FileJson, History, ImageIcon, Loader2, Waves, LayoutGrid, Maximize2, Activity, Search, Target, Play, Pause, AlertTriangle, Trash2 } from "lucide-react";
 import MatrixHeatmap from "../components/captures/MatrixHeatmap";
 import { Badge } from "../components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card";
@@ -23,13 +23,14 @@ const artifactKinds: { kind: ArtifactKind; label: string; icon: any }[] = [
 ];
 
 export default function Captures() {
-  const { captures, fetchCapture } = useTelemetry();
+  const { captures, fetchCapture, deleteCapture } = useTelemetry();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialId = searchParams.get("capture");
   
   const [selectedCaptureId, setSelectedCaptureId] = useState<string | null>(initialId);
   const [selectedArtifact, setSelectedArtifact] = useState<ArtifactKind>("raw");
   const [imageState, setImageState] = useState<'loading' | 'loaded' | 'error'>('loading');
+  const [deleteState, setDeleteState] = useState<"idle" | "deleting">("idle");
   
   const orderedCaptures = useMemo(
     () => [...captures].sort((left, right) => new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime()),
@@ -89,6 +90,23 @@ export default function Captures() {
     setSearchParams({ capture: captureId });
   };
 
+  const removeSelectedCapture = async () => {
+    if (!selectedCapture) return;
+    const confirmed = window.confirm(`Delete capture ${selectedCapture.capture_id}? This removes stored artifacts too.`);
+    if (!confirmed) return;
+    const remaining = orderedCaptures.filter((capture) => capture.capture_id !== selectedCapture.capture_id);
+    const nextCaptureId = remaining[0]?.capture_id ?? null;
+    setDeleteState("deleting");
+    try {
+      await deleteCapture(selectedCapture.capture_id);
+      setSelectedCaptureId(nextCaptureId);
+      setFollowLive(nextCaptureId === remaining[0]?.capture_id);
+      setSearchParams(nextCaptureId ? { capture: nextCaptureId } : {});
+    } finally {
+      setDeleteState("idle");
+    }
+  };
+
   const areaGraphData = useMemo(() => {
     if (!selectedCapture) return [];
     return selectedCapture.regions.map((r, i) => ({
@@ -116,6 +134,16 @@ export default function Captures() {
           <p className="text-sm text-muted-foreground">Historical record of sensor data and detections.</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void removeSelectedCapture()}
+            className="h-9 gap-2 px-4 text-xs font-semibold"
+            disabled={!selectedCapture || deleteState === "deleting"}
+          >
+            {deleteState === "deleting" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+            Delete Capture
+          </Button>
           <Button 
             variant={followLive ? "secondary" : "outline"} 
             size="sm" 

@@ -68,6 +68,7 @@ interface TelemetryContextType {
   systemTime: string;
   issueCommand: (deviceId: string, kind: string, args?: Record<string, unknown>) => Promise<void>;
   fetchCapture: (captureId: string) => Promise<CaptureRecord>;
+  deleteCapture: (captureId: string) => Promise<void>;
   clearError: () => void;
 }
 
@@ -150,6 +151,12 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
+      if (topic === "capture_deleted" && data.capture_id) {
+        const captureId = String(data.capture_id);
+        setCaptures((current) => current.filter((capture) => capture.capture_id !== captureId));
+        toast.success(`Deleted capture ${captureId.slice(-8)}`);
+      }
+
       if (topic === "command") {
         const cmd = commandFromEvent(data);
         if (!cmd) return;
@@ -209,12 +216,17 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
     return data;
   }, []);
 
+  const deleteCapture = useCallback(async (captureId: string) => {
+    await apiFetch(`/api/captures/${captureId}`, { method: "DELETE" });
+    setCaptures((current) => current.filter((capture) => capture.capture_id !== captureId));
+  }, []);
+
   const clearError = useCallback(() => {
     setCommandError(null);
   }, []);
 
   return (
-    <TelemetryContext.Provider value={{ devices, captures, events, commands, commandError, socketConnected, systemTime, issueCommand, fetchCapture, clearError }}>
+    <TelemetryContext.Provider value={{ devices, captures, events, commands, commandError, socketConnected, systemTime, issueCommand, fetchCapture, deleteCapture, clearError }}>
       {children}
     </TelemetryContext.Provider>
   );

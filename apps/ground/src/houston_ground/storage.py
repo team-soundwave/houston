@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 
@@ -17,3 +18,8 @@ class Storage:
 
     def artifact_url(self, device_id: str, capture_id: str, filename: str) -> str:
         return f"/artifacts/{device_id}/{capture_id}/{filename}"
+
+    def delete_capture(self, device_id: str, capture_id: str) -> None:
+        target_dir = self.root / device_id / capture_id
+        if target_dir.exists():
+            shutil.rmtree(target_dir)

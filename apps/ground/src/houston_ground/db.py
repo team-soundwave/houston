@@ -55,5 +55,8 @@ class Database:
     def list_captures(self, limit: int = 25) -> list[CaptureRecord]:
         return self.captures.list(limit)
 
+    def delete_capture(self, capture_id: str) -> CaptureRecord | None:
+        return self.captures.delete(capture_id)
+
     def list_events(self, limit: int = 50) -> list[dict[str, Any]]:
         return self.events.list(limit)

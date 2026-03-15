@@ -51,6 +51,13 @@ class CaptureStore:
         rows = self.db.fetchall("select capture_id from captures order by timestamp desc limit ?", (limit,))
         return [capture for row in rows if (capture := self.get(row["capture_id"])) is not None]
 
+    def delete(self, capture_id: str) -> CaptureRecord | None:
+        capture = self.get(capture_id)
+        if capture is None:
+            return None
+        self.db.execute("delete from captures where capture_id = ?", (capture_id,))
+        return capture
+
     def _packet(self, capture_id: str) -> CapturePacket | None:
         row = self.db.fetchone("select packet_json from captures where capture_id = ?", (capture_id,))
         return CapturePacket.model_validate_json(row["packet_json"]) if row else None
