@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { User, AuthState } from "../types";
+import { groundHttpBase } from "../lib/runtime-url";
 
 interface AuthContextType extends AuthState {
   login: (username: string, password: string) => Promise<void>;
@@ -9,7 +10,7 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const apiBase = import.meta.env.VITE_GROUND_HTTP_BASE ?? "http://127.0.0.1:8000";
+const apiBase = groundHttpBase();
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({

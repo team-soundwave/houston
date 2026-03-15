@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { CaptureRecord, DeviceRecord, EventRecord, CommandRecord } from "../types";
 import { useAuth } from "./AuthContext";
+import { groundHttpBase, groundWsBase } from "../lib/runtime-url";
 import { toast } from "sonner";
 
-const apiBase = import.meta.env.VITE_GROUND_HTTP_BASE ?? "http://127.0.0.1:8000";
-const wsBase = import.meta.env.VITE_GROUND_WS_URL ?? "ws://127.0.0.1:8000/ws/ui";
+const apiBase = groundHttpBase();
+const wsBase = groundWsBase();
 
 function upsertByKey<T extends Record<string, unknown>>(items: T[], item: T, key: keyof T): T[] {
   const next = [...items];

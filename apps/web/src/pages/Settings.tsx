@@ -3,9 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../co
 import { useTelemetry } from "../contexts/TelemetryContext";
 import { adcsAvailable, adcsSource, bridgeWatchDir, captureInterval, captureSource, capturingEnabled, deviceMode, nextCaptureDueAt } from "../lib/device-runtime";
 import { buildLinkMetrics, formatBytes } from "../lib/link-metrics";
+import { groundHttpBase, groundWsBase } from "../lib/runtime-url";
 
-const apiBase = import.meta.env.VITE_GROUND_HTTP_BASE ?? "http://127.0.0.1:8000";
-const wsBase = import.meta.env.VITE_GROUND_WS_URL ?? "ws://127.0.0.1:8000/ws/ui";
+const apiBase = groundHttpBase();
+const wsBase = groundWsBase();
 
 export default function Settings() {
   const { devices, captures, socketConnected } = useTelemetry();
