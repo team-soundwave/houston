@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pause, Play, Rewind, Sparkles } from "lucide-react";
-import { Button } from "../ui/button";
+import { Blend, Sparkles } from "lucide-react";
 import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
 
 type HistoryFrame = {
   captureId: string;
@@ -27,74 +27,62 @@ function frameLabel(frame: HistoryFrame): string {
   return `${frame.captureId.slice(-8).toUpperCase()} · ${new Date(frame.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
 }
 
-function diffCanvas(previous: HTMLImageElement, current: HTMLImageElement): HTMLCanvasElement {
-  const width = current.naturalWidth;
-  const height = current.naturalHeight;
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return canvas;
-
-  const scratch = document.createElement("canvas");
-  scratch.width = width;
-  scratch.height = height;
-  const scratchCtx = scratch.getContext("2d");
-  if (!scratchCtx) return canvas;
-
-  scratchCtx.drawImage(previous, 0, 0, width, height);
-  const previousData = scratchCtx.getImageData(0, 0, width, height);
-  scratchCtx.clearRect(0, 0, width, height);
-  scratchCtx.drawImage(current, 0, 0, width, height);
-  const currentData = scratchCtx.getImageData(0, 0, width, height);
-  const output = scratchCtx.createImageData(width, height);
-
-  for (let index = 0; index < currentData.data.length; index += 4) {
-    const prevLum = previousData.data[index] * 0.2126 + previousData.data[index + 1] * 0.7152 + previousData.data[index + 2] * 0.0722;
-    const currLum = currentData.data[index] * 0.2126 + currentData.data[index + 1] * 0.7152 + currentData.data[index + 2] * 0.0722;
-    const delta = Math.max(0, Math.abs(currLum - prevLum) - 10);
-    const normalized = delta / 245;
-    const logResponse = Math.log1p(normalized * 24) / Math.log1p(24);
-    const emphasized = Math.pow(logResponse, 1.8);
-    const intensity = Math.min(255, Math.round(emphasized * 255));
-    output.data[index] = intensity;
-    output.data[index + 1] = Math.min(255, Math.round(intensity * 0.78));
-    output.data[index + 2] = Math.min(255, Math.round(intensity * 0.18));
-    output.data[index + 3] = intensity;
+function interpolateColor(position: number) {
+  const stops = [
+    { at: 0.0, rgb: [255, 74, 74] },
+    { at: 0.25, rgb: [255, 168, 76] },
+    { at: 0.5, rgb: [250, 225, 92] },
+    { at: 0.72, rgb: [84, 198, 255] },
+    { at: 1.0, rgb: [170, 110, 255] },
+  ];
+  for (let index = 0; index < stops.length - 1; index += 1) {
+    const left = stops[index];
+    const right = stops[index + 1];
+    if (position < left.at || position > right.at) continue;
+    const mix = (position - left.at) / (right.at - left.at);
+    return left.rgb.map((value, channel) => Math.round(value + (right.rgb[channel] - value) * mix));
   }
+  return stops.at(-1)?.rgb ?? [170, 110, 255];
+}
 
-  ctx.putImageData(output, 0, 0);
-  return canvas;
+function luminance(data: Uint8ClampedArray, index: number) {
+  return data[index] * 0.2126 + data[index + 1] * 0.7152 + data[index + 2] * 0.0722;
+}
+
+function scaledDimensions(image: HTMLImageElement, maxWidth = 1280) {
+  if (image.naturalWidth <= maxWidth) {
+    return { width: image.naturalWidth, height: image.naturalHeight };
+  }
+  const scale = maxWidth / image.naturalWidth;
+  return {
+    width: Math.round(image.naturalWidth * scale),
+    height: Math.round(image.naturalHeight * scale),
+  };
 }
 
 export default function LiveHistoryViewer({ frames }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [baseCaptureId, setBaseCaptureId] = useState<string>(frames[0]?.captureId ?? "");
-  const [playing, setPlaying] = useState(true);
-  const [progress, setProgress] = useState(0);
-  const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<Record<string, HTMLImageElement>>({});
-  const diffCache = useRef<Record<string, HTMLCanvasElement>>({});
-  const rafRef = useRef<number | null>(null);
-  const lastTickRef = useRef<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [building, setBuilding] = useState(false);
+  const [startCaptureId, setStartCaptureId] = useState(frames[0]?.captureId ?? "");
+  const [endCaptureId, setEndCaptureId] = useState(frames.at(-1)?.captureId ?? "");
 
   useEffect(() => {
-    if (!frames.find((frame) => frame.captureId === baseCaptureId)) {
-      setBaseCaptureId(frames[0]?.captureId ?? "");
+    if (!frames.find((frame) => frame.captureId === startCaptureId)) {
+      setStartCaptureId(frames[0]?.captureId ?? "");
     }
-  }, [baseCaptureId, frames]);
-
-  useEffect(() => {
-    setProgress(0);
-  }, [baseCaptureId]);
+    if (!frames.find((frame) => frame.captureId === endCaptureId)) {
+      setEndCaptureId(frames.at(-1)?.captureId ?? "");
+    }
+  }, [endCaptureId, frames, startCaptureId]);
 
   useEffect(() => {
     let cancelled = false;
+    setError(null);
     void Promise.all(frames.map(async (frame) => [frame.captureId, await loadImage(frame.url)] as const))
       .then((pairs) => {
-        if (cancelled) return;
-        setLoaded(Object.fromEntries(pairs));
-        setError(null);
+        if (!cancelled) setLoaded(Object.fromEntries(pairs));
       })
       .catch((err: Error) => {
         if (!cancelled) setError(err.message);
@@ -104,112 +92,124 @@ export default function LiveHistoryViewer({ frames }: Props) {
     };
   }, [frames]);
 
-  const activeFrames = useMemo(() => {
-    const baseIndex = Math.max(0, frames.findIndex((frame) => frame.captureId === baseCaptureId));
-    return frames.slice(baseIndex);
-  }, [baseCaptureId, frames]);
-
-  const maxProgress = Math.max(0, activeFrames.length - 1);
-
-  useEffect(() => {
-    if (!playing || maxProgress <= 0) return;
-    const tick = (now: number) => {
-      if (lastTickRef.current === null) lastTickRef.current = now;
-      const delta = (now - lastTickRef.current) / 1000;
-      lastTickRef.current = now;
-      setProgress((value) => {
-        const next = value + delta * 0.55;
-        if (next >= maxProgress) {
-          setPlaying(false);
-          return maxProgress;
-        }
-        return next;
-      });
-      rafRef.current = window.requestAnimationFrame(tick);
-    };
-    rafRef.current = window.requestAnimationFrame(tick);
-    return () => {
-      lastTickRef.current = null;
-      if (rafRef.current !== null) window.cancelAnimationFrame(rafRef.current);
-    };
-  }, [maxProgress, playing]);
+  const selectedFrames = useMemo(() => {
+    const startIndex = Math.max(0, frames.findIndex((frame) => frame.captureId === startCaptureId));
+    const endIndex = Math.max(startIndex, frames.findIndex((frame) => frame.captureId === endCaptureId));
+    return frames.slice(startIndex, endIndex + 1);
+  }, [endCaptureId, frames, startCaptureId]);
 
   useEffect(() => {
-    if (!canvasRef.current || activeFrames.length < 2) return;
-    const previousIndex = Math.min(Math.floor(progress), activeFrames.length - 2);
-    const currentIndex = Math.min(previousIndex + 1, activeFrames.length - 1);
-    const previousFrame = activeFrames[previousIndex];
-    const currentFrame = activeFrames[currentIndex];
-    const previousImage = loaded[previousFrame.captureId];
-    const currentImage = loaded[currentFrame.captureId];
-    if (!previousImage || !currentImage) return;
-
+    if (!canvasRef.current || selectedFrames.length < 2) return;
+    const latestFrame = selectedFrames.at(-1);
+    if (!latestFrame) return;
+    const latestImage = loaded[latestFrame.captureId];
+    if (!latestImage) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    let cancelled = false;
 
-    try {
-      const phase = progress - previousIndex;
-      const width = currentImage.naturalWidth;
-      const height = currentImage.naturalHeight;
-      canvas.width = width;
-      canvas.height = height;
+    const render = async () => {
+      setBuilding(true);
+      try {
+        const { width, height } = scaledDimensions(latestImage);
+        canvas.width = width;
+        canvas.height = height;
 
-      const diffKey = `${previousFrame.captureId}:${currentFrame.captureId}`;
-      if (!diffCache.current[diffKey]) {
-        diffCache.current[diffKey] = diffCanvas(previousImage, currentImage);
+        const scratch = document.createElement("canvas");
+        scratch.width = width;
+        scratch.height = height;
+        const scratchCtx = scratch.getContext("2d", { willReadFrequently: true });
+        if (!scratchCtx) return;
+        const overlayCanvas = document.createElement("canvas");
+        overlayCanvas.width = width;
+        overlayCanvas.height = height;
+        const overlayCtx = overlayCanvas.getContext("2d");
+        if (!overlayCtx) return;
+
+        ctx.clearRect(0, 0, width, height);
+        ctx.filter = "grayscale(1) brightness(0.52) contrast(1.04)";
+        ctx.drawImage(latestImage, 0, 0, width, height);
+        ctx.filter = "none";
+
+        const overlay = ctx.createImageData(width, height);
+        const pairCount = selectedFrames.length - 1;
+
+        for (let pairIndex = 0; pairIndex < pairCount; pairIndex += 1) {
+          const previous = loaded[selectedFrames[pairIndex].captureId];
+          const current = loaded[selectedFrames[pairIndex + 1].captureId];
+          if (!previous || !current) continue;
+
+          scratchCtx.clearRect(0, 0, width, height);
+          scratchCtx.drawImage(previous, 0, 0, width, height);
+          const previousData = scratchCtx.getImageData(0, 0, width, height).data;
+          scratchCtx.clearRect(0, 0, width, height);
+          scratchCtx.drawImage(current, 0, 0, width, height);
+          const currentData = scratchCtx.getImageData(0, 0, width, height).data;
+
+          const position = pairCount === 1 ? 1 : pairIndex / (pairCount - 1);
+          const [red, green, blue] = interpolateColor(position);
+
+          for (let index = 0; index < currentData.length; index += 4) {
+            const delta = Math.max(0, Math.abs(luminance(currentData, index) - luminance(previousData, index)) - 10);
+            const normalized = delta / 245;
+            const logResponse = Math.log1p(normalized * 22) / Math.log1p(22);
+            const emphasized = Math.pow(logResponse, 2.0);
+            if (emphasized < 0.055) continue;
+            overlay.data[index] = Math.min(255, overlay.data[index] + red * emphasized);
+            overlay.data[index + 1] = Math.min(255, overlay.data[index + 1] + green * emphasized);
+            overlay.data[index + 2] = Math.min(255, overlay.data[index + 2] + blue * emphasized);
+            overlay.data[index + 3] = Math.min(255, overlay.data[index + 3] + emphasized * 245);
+          }
+
+          if (pairIndex % 2 === 1) {
+            await new Promise((resolve) => window.setTimeout(resolve, 0));
+            if (cancelled) return;
+          }
+        }
+
+        if (cancelled) return;
+        overlayCtx.putImageData(overlay, 0, 0);
+        ctx.drawImage(overlayCanvas, 0, 0, width, height);
+        setError(null);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to render live history");
+        }
+      } finally {
+        if (!cancelled) setBuilding(false);
       }
-      const diff = diffCache.current[diffKey];
+    };
 
-      ctx.clearRect(0, 0, width, height);
-      if (phase < 0.22) {
-        ctx.drawImage(previousImage, 0, 0, width, height);
-      } else if (phase < 0.52) {
-        ctx.drawImage(previousImage, 0, 0, width, height);
-        ctx.globalAlpha = (phase - 0.22) / 0.3;
-        ctx.drawImage(diff, 0, 0, width, height);
-        ctx.globalAlpha = 1;
-      } else if (phase < 0.82) {
-        const blend = (phase - 0.52) / 0.3;
-        ctx.globalAlpha = 1 - blend;
-        ctx.drawImage(previousImage, 0, 0, width, height);
-        ctx.globalAlpha = blend;
-        ctx.drawImage(currentImage, 0, 0, width, height);
-        ctx.globalAlpha = 0.55 * (1 - blend);
-        ctx.drawImage(diff, 0, 0, width, height);
-        ctx.globalAlpha = 1;
-      } else {
-        ctx.drawImage(currentImage, 0, 0, width, height);
-        ctx.globalAlpha = Math.max(0, (1 - phase) / 0.18) * 0.28;
-        ctx.drawImage(diff, 0, 0, width, height);
-        ctx.globalAlpha = 1;
-      }
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to render live history");
-    }
-  }, [activeFrames, loaded, progress]);
+    void render();
+    return () => {
+      cancelled = true;
+    };
+  }, [loaded, selectedFrames]);
 
   if (frames.length < 2) {
-    return <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Need at least two captures to animate history.</div>;
+    return <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Need at least two captures to build a range diff.</div>;
   }
-
-  const stepIndex = Math.min(Math.floor(progress), Math.max(0, activeFrames.length - 2));
-  const previousFrame = activeFrames[stepIndex];
-  const currentFrame = activeFrames[Math.min(stepIndex + 1, activeFrames.length - 1)];
 
   return (
     <div className="flex h-full flex-col gap-4">
-      <div className="grid grid-cols-1 xl:grid-cols-[240px_1fr_auto] gap-4 items-center">
+      <div className="grid grid-cols-1 xl:grid-cols-[240px_240px_1fr_auto] gap-4 items-end">
         <label className="flex flex-col gap-2 text-xs font-semibold text-muted-foreground">
-          Series start
-          <select
-            value={baseCaptureId}
-            onChange={(event) => setBaseCaptureId(event.target.value)}
-            className="h-10 rounded-md border bg-background px-3 text-sm text-foreground"
-          >
+          Range start
+          <select value={startCaptureId} onChange={(event) => setStartCaptureId(event.target.value)} className="h-10 rounded-md border bg-background px-3 text-sm text-foreground">
             {frames.map((frame) => (
-              <option key={frame.captureId} value={frame.captureId}>
+              <option key={`start-${frame.captureId}`} value={frame.captureId}>
+                {frameLabel(frame)}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-2 text-xs font-semibold text-muted-foreground">
+          Range end
+          <select value={endCaptureId} onChange={(event) => setEndCaptureId(event.target.value)} className="h-10 rounded-md border bg-background px-3 text-sm text-foreground">
+            {frames.map((frame) => (
+              <option key={`end-${frame.captureId}`} value={frame.captureId}>
                 {frameLabel(frame)}
               </option>
             ))}
@@ -217,47 +217,33 @@ export default function LiveHistoryViewer({ frames }: Props) {
         </label>
 
         <div className="space-y-2">
-          <input
-            type="range"
-            min={0}
-            max={maxProgress}
-            step={0.01}
-            value={progress}
-            onChange={(event) => {
-              setPlaying(false);
-              setProgress(Number(event.target.value));
-            }}
-            className="w-full accent-primary"
-          />
+          <div className="text-[10px] font-mono uppercase text-muted-foreground">
+            Composite over {selectedFrames.length} captures / {Math.max(0, selectedFrames.length - 1)} diffs
+          </div>
+          <div className="h-3 rounded-full bg-gradient-to-r from-red-500 via-amber-400 via-yellow-300 via-sky-400 to-violet-500" />
           <div className="flex items-center justify-between text-[10px] font-mono uppercase text-muted-foreground">
-            <span>{frameLabel(previousFrame)}</span>
-            <span>{frameLabel(currentFrame)}</span>
+            <span>Earlier changes</span>
+            <span>Latest changes</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant={playing ? "secondary" : "outline"} size="sm" onClick={() => setPlaying((value) => !value)}>
-            {playing ? <Pause className="h-3.5 w-3.5 mr-2" /> : <Play className="h-3.5 w-3.5 mr-2" />}
-            {playing ? "Pause" : "Play"}
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => { setPlaying(false); setProgress(0); }}>
-            <Rewind className="h-3.5 w-3.5 mr-2" />
-            Reset
-          </Button>
-        </div>
+        <Button variant="outline" size="sm" onClick={() => { setStartCaptureId(frames[0]?.captureId ?? ""); setEndCaptureId(frames.at(-1)?.captureId ?? ""); }}>
+          <Blend className="h-3.5 w-3.5 mr-2" />
+          Full Range
+        </Button>
       </div>
 
       <div className="flex items-center gap-2 text-[10px] font-mono uppercase text-muted-foreground">
         <Badge variant="secondary" className="text-[9px]">
           <Sparkles className="h-3 w-3 mr-1" />
-          Diff-emphasized playback
+          Rainbow-coded time progression
         </Badge>
-        <span>Sequence length {activeFrames.length}</span>
+        <span>Red = earliest change, violet = latest change</span>
       </div>
 
       <div className="relative flex-1 min-h-[560px] rounded-xl border bg-muted/[0.03] overflow-hidden">
-        {!loaded[previousFrame.captureId] && !error && (
-          <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">Loading history frames...</div>
+        {(!loaded[selectedFrames[0].captureId] || building) && !error && (
+          <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">Loading range frames...</div>
         )}
         {error && (
           <div className="absolute inset-0 flex items-center justify-center p-8 text-center text-sm text-muted-foreground">{error}</div>

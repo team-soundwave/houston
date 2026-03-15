@@ -20,10 +20,27 @@ class SimulatorFrameSource:
     def __init__(self, width: int, height: int) -> None:
         self.width = width
         self.height = height
-        self._image = self._load_example_frame(width, height)
+        self._base_image = self._load_example_frame(width, height).astype(np.float32)
+        self._frame_index = 0
 
     def capture_array(self) -> np.ndarray:
-        return self._image.copy()
+        animated = self._base_image.copy()
+        x = np.linspace(0, 1, self.width, dtype=np.float32)
+        y = np.linspace(0, 1, self.height, dtype=np.float32)
+        xv, yv = np.meshgrid(x, y)
+        phase = self._frame_index * 0.22
+        gradient = 0.78 + 0.18 * np.sin((xv * 6.5) + phase) + 0.12 * np.cos((yv * 4.5) - phase * 0.7)
+        animated *= gradient[..., None]
+
+        for offset in range(3):
+            cx = int((0.18 + ((self._frame_index * 0.021) + (offset * 0.23)) % 0.68) * self.width)
+            cy = int((0.24 + ((self._frame_index * 0.017) + (offset * 0.19)) % 0.52) * self.height)
+            radius = 12 + (offset * 11)
+            cv2.circle(animated, (cx, cy), radius, (32 + offset * 16, 56 + offset * 10, 72 + offset * 18), -1)
+
+        noise = np.random.normal(0, 3.5, size=animated.shape)
+        self._frame_index += 1
+        return np.clip(animated + noise, 0, 255).astype(np.uint8)
 
     def available(self) -> bool:
         return True
