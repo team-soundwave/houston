@@ -13,7 +13,9 @@ def compute_dust_intensity(image: np.ndarray) -> np.ndarray:
     enhanced = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
     blurred = cv2.GaussianBlur(enhanced, (5, 5), 0)
     background = cv2.GaussianBlur(blurred, (31, 31), 0)
-    return cv2.subtract(blurred, background)
+    anomaly = cv2.subtract(blurred, background)
+    normalized = cv2.normalize(anomaly, None, 0, 255, cv2.NORM_MINMAX)
+    return cv2.convertScaleAbs(normalized, alpha=1.8, beta=0)
 
 
 def detect_dust_regions(

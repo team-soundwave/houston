@@ -13,7 +13,7 @@ class GroundSettings(BaseSettings):
     database_path: Path = Path("var/ground/houston.db")
     storage_dir: Path = Path("var/ground/storage")
     web_dist_dir: Path = Path("apps/web/dist")
-    ui_allowed_origins: list[str] = ["http://127.0.0.1:5173", "http://localhost:5173"]
+    ui_allowed_origins: list[str] = ["*"]
 
 
 @lru_cache

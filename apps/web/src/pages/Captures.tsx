@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, Line, LineChart, Scatter, ScatterChart, ZAxis, Area, AreaChart } from "recharts";
-import { Download, FileJson, History, ImageIcon, Loader2, Waves, LayoutGrid, Maximize2, Activity, Search, Target, Play, Pause, AlertTriangle, Trash2 } from "lucide-react";
+import { Download, FileJson, History, ImageIcon, Loader2, Waves, LayoutGrid, Maximize2, Activity, Search, Target, Play, Pause, AlertTriangle, Trash2, SplitSquareVertical } from "lucide-react";
+import CaptureComparison from "../components/captures/CaptureComparison";
+import CaptureDiffViewer from "../components/captures/CaptureDiffViewer";
 import MatrixHeatmap from "../components/captures/MatrixHeatmap";
 import { Badge } from "../components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card";
@@ -13,6 +15,7 @@ import { Button } from "../components/ui/button";
 import { Separator } from "../components/ui/separator";
 
 type ArtifactKind = "raw" | "intensity" | "mask" | "matrix" | "packet";
+type ViewerTab = ArtifactKind | "diff";
 
 const artifactKinds: { kind: ArtifactKind; label: string; icon: any }[] = [
   { kind: "raw", label: "Optical", icon: ImageIcon },
@@ -28,7 +31,7 @@ export default function Captures() {
   const initialId = searchParams.get("capture");
   
   const [selectedCaptureId, setSelectedCaptureId] = useState<string | null>(initialId);
-  const [selectedArtifact, setSelectedArtifact] = useState<ArtifactKind>("raw");
+  const [selectedArtifact, setSelectedArtifact] = useState<ViewerTab>("raw");
   const [imageState, setImageState] = useState<'loading' | 'loaded' | 'error'>('loading');
   const [deleteState, setDeleteState] = useState<"idle" | "deleting">("idle");
   
@@ -43,10 +46,18 @@ export default function Captures() {
     () => orderedCaptures.find((capture) => capture.capture_id === selectedCaptureId) ?? orderedCaptures[0] ?? null,
     [orderedCaptures, selectedCaptureId]
   );
+  const previousCapture = useMemo(() => {
+    if (!selectedCapture) return null;
+    const selectedIndex = orderedCaptures.findIndex((capture) => capture.capture_id === selectedCapture.capture_id);
+    return selectedIndex >= 0 ? orderedCaptures[selectedIndex + 1] ?? null : null;
+  }, [orderedCaptures, selectedCapture]);
 
   const selectedArtifactDescriptor = selectedCapture?.artifacts?.find((artifact) => artifact.kind === selectedArtifact);
   const selectedArtifactUrl = selectedCapture ? artifactUrl(selectedCapture, selectedArtifact) : null;
   const isUploading = selectedArtifactDescriptor && !selectedArtifactDescriptor.uploaded;
+  const currentRawUrl = selectedCapture ? artifactUrl(selectedCapture, "raw") : null;
+  const previousRawUrl = previousCapture ? artifactUrl(previousCapture, "raw") : null;
+  const diffAvailable = Boolean(currentRawUrl && previousRawUrl);
 
   useEffect(() => {
     if (!selectedCapture && orderedCaptures[0]) {
@@ -77,6 +88,12 @@ export default function Captures() {
       return () => window.clearInterval(timer);
     }
   }, [selectedCapture?.capture_id, isUploading, fetchCapture]);
+
+  useEffect(() => {
+    if (selectedArtifact === "diff" && !diffAvailable) {
+      setSelectedArtifact("raw");
+    }
+  }, [diffAvailable, selectedArtifact]);
 
   useEffect(() => {
     if (selectedArtifactUrl || isUploading) {
@@ -153,7 +170,7 @@ export default function Captures() {
             {followLive ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
             {followLive ? "Live Sync On" : "Sync Disabled"}
           </Button>
-          <Button variant="outline" size="sm" className="h-9 gap-2 px-4 text-xs font-semibold" asChild disabled={!selectedArtifactUrl}>
+          <Button variant="outline" size="sm" className="h-9 gap-2 px-4 text-xs font-semibold" asChild disabled={!selectedArtifactUrl || selectedArtifact === "diff"}>
             <a href={selectedArtifactUrl || "#"} download>
               <Download className="h-3.5 w-3.5" /> Export Artifact
             </a>
@@ -238,7 +255,7 @@ export default function Captures() {
             <>
               {/* Primary Viewer */}
               <Card className="shadow-none border-border/60 overflow-hidden bg-card flex flex-col min-h-[600px]">
-                <Tabs value={selectedArtifact} onValueChange={(v) => setSelectedArtifact(v as ArtifactKind)} className="flex-1 flex flex-col">
+                <Tabs value={selectedArtifact} onValueChange={(v) => setSelectedArtifact(v as ViewerTab)} className="flex-1 flex flex-col">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 py-2 border-b bg-muted/10 gap-4 shrink-0">
                     <TabsList className="h-9 bg-transparent p-0 gap-1 justify-start">
                       {artifactKinds.map(({ kind, label, icon: Icon }) => (
@@ -251,6 +268,13 @@ export default function Captures() {
                           <Icon className="h-3.5 w-3.5" /> {label}
                         </TabsTrigger>
                       ))}
+                      <TabsTrigger
+                        value="diff"
+                        disabled={!diffAvailable}
+                        className="h-8 px-4 text-xs font-medium gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-border/60"
+                      >
+                        <SplitSquareVertical className="h-3.5 w-3.5" /> Diff
+                      </TabsTrigger>
                     </TabsList>
                     <div className="text-[10px] font-mono font-medium text-muted-foreground bg-muted/30 px-3 py-1.5 rounded border border-border/40">
                       ID: {selectedCapture.capture_id}
@@ -259,7 +283,21 @@ export default function Captures() {
 
                   <div className="flex-1 relative flex items-center justify-center p-4 sm:p-12 bg-muted/[0.02]">
                     <TabsContent value={selectedArtifact} className="m-0 w-full h-full flex flex-col outline-none">
-                      {selectedArtifact === 'packet' ? (
+                      {selectedArtifact === 'diff' ? (
+                        currentRawUrl && previousRawUrl ? (
+                          <CaptureDiffViewer
+                            currentUrl={currentRawUrl}
+                            previousUrl={previousRawUrl}
+                            currentLabel={selectedCapture.capture_id.slice(-8).toUpperCase()}
+                            previousLabel={previousCapture?.capture_id.slice(-8).toUpperCase() ?? "PREV"}
+                          />
+                        ) : (
+                          <div className="py-20 flex flex-col items-center justify-center text-muted-foreground gap-4">
+                            <Target className="h-12 w-12 opacity-10" />
+                            <p className="text-[10px] font-bold uppercase tracking-widest opacity-40">Comparison Unavailable</p>
+                          </div>
+                        )
+                      ) : selectedArtifact === 'packet' ? (
                         <div className="w-full h-full border rounded-xl bg-card p-8">
                           <ScrollArea className="h-full scrollbar-none">
                             <pre className="font-mono text-[11px] leading-relaxed text-foreground/70">
@@ -390,6 +428,8 @@ export default function Captures() {
                   </CardContent>
                 </Card>
               </div>
+
+              <CaptureComparison capture={selectedCapture} previousCapture={previousCapture} />
 
               {/* Detections Registry */}
               <Card className="shadow-none border-border/60 overflow-hidden bg-card">
