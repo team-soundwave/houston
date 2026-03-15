@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+import cv2
+
 from .adcs import ADCSProvider, build_adcs_provider
 from .artifacts import CaptureBundle, build_capture_bundle
 from .camera import FrameSource, build_frame_source
@@ -39,7 +41,8 @@ class CapturePipeline:
     def run_capture(self, capture_id: str) -> CaptureBundle:
         captured_at = datetime.now(UTC)
         adcs_state = self._adcs_state(captured_at)
-        image = self.frame_source.capture_array()
+        image_bgr = self.frame_source.capture_array()
+        image = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
         intensity = compute_dust_intensity(image)
         mask, regions = detect_dust_regions(
             intensity=intensity,

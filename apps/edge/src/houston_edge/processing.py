@@ -9,8 +9,7 @@ import numpy as np
 def compute_dust_intensity(image: np.ndarray) -> np.ndarray:
     """Mirror the original cubesat/main.py brightness anomaly pipeline."""
 
-    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    gray = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2GRAY)
+    gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
     enhanced = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
     blurred = cv2.GaussianBlur(enhanced, (5, 5), 0)
     background = cv2.GaussianBlur(blurred, (31, 31), 0)
