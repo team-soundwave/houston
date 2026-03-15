@@ -60,10 +60,13 @@ HOUSTON_ADCS_SOURCE=command
 HOUSTON_ADCS_COMMAND="/usr/local/bin/read-adcs-state"
 ```
 
-If the target environment needs `picamera2`, install the optional extra:
+On Raspberry Pi OS, `picamera2` is often installed as a system Python
+package. The Pi launchers recreate `.venv` with `--system-site-packages`
+so the Houston virtualenv can see that system install automatically.
+If needed, install it with:
 
 ```bash
-pip install picamera2
+sudo apt install -y python3-picamera2
 ```
 
 If you want Houston to attach to the existing `cubesat/main.py` process

@@ -2,6 +2,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+bash ./scripts/prepare-venv.sh
+
 port_pids() {
   local port="$1"
   local pids=""

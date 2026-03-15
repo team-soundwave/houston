@@ -21,6 +21,10 @@ fi
 
 cd "$ROOT_DIR"
 
+if [[ "$MODE" == "all" || "$MODE" == "edge" ]]; then
+  bash ./scripts/prepare-venv.sh
+fi
+
 case "$MODE" in
   all|edge|ground)
     python3 scripts/dev_up.py "$MODE"
