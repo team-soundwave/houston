@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, Line, LineChart, Scatter, ScatterChart, ZAxis, Area, AreaChart } from "recharts";
-import { Download, FileJson, History, ImageIcon, Loader2, Waves, LayoutGrid, Maximize2, Activity, Search, Target, Play, Pause, AlertTriangle, Trash2, SplitSquareVertical } from "lucide-react";
+import { Download, FileJson, History, ImageIcon, Loader2, Waves, LayoutGrid, Maximize2, Activity, Search, Target, Play, Pause, AlertTriangle, Trash2, SplitSquareVertical, Film } from "lucide-react";
 import CaptureComparison from "../components/captures/CaptureComparison";
 import CaptureDiffViewer from "../components/captures/CaptureDiffViewer";
+import LiveHistoryViewer from "../components/captures/LiveHistoryViewer";
 import MatrixHeatmap from "../components/captures/MatrixHeatmap";
 import { Badge } from "../components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card";
@@ -15,7 +16,7 @@ import { Button } from "../components/ui/button";
 import { Separator } from "../components/ui/separator";
 
 type ArtifactKind = "raw" | "intensity" | "mask" | "matrix" | "packet";
-type ViewerTab = ArtifactKind | "diff";
+type ViewerTab = ArtifactKind | "diff" | "live_history";
 
 const artifactKinds: { kind: ArtifactKind; label: string; icon: any }[] = [
   { kind: "raw", label: "Optical", icon: ImageIcon },
@@ -58,6 +59,20 @@ export default function Captures() {
   const currentRawUrl = selectedCapture ? artifactUrl(selectedCapture, "raw") : null;
   const previousRawUrl = previousCapture ? artifactUrl(previousCapture, "raw") : null;
   const diffAvailable = Boolean(currentRawUrl && previousRawUrl);
+  const historyFrames = useMemo(() => {
+    const frames = [...orderedCaptures]
+      .reverse()
+      .map((capture) => ({ capture, url: artifactUrl(capture, "raw") }))
+      .filter((entry) => entry.url);
+    const endIndex = selectedCapture ? frames.findIndex((entry) => entry.capture.capture_id === selectedCapture.capture_id) : frames.length - 1;
+    const visibleFrames = endIndex >= 0 ? frames.slice(0, endIndex + 1) : frames;
+    return visibleFrames.map((entry) => ({
+      captureId: entry.capture.capture_id,
+      timestamp: entry.capture.timestamp,
+      url: entry.url as string,
+    }));
+  }, [orderedCaptures, selectedCapture]);
+  const liveHistoryAvailable = historyFrames.length > 1;
 
   useEffect(() => {
     if (!selectedCapture && orderedCaptures[0]) {
@@ -93,7 +108,10 @@ export default function Captures() {
     if (selectedArtifact === "diff" && !diffAvailable) {
       setSelectedArtifact("raw");
     }
-  }, [diffAvailable, selectedArtifact]);
+    if (selectedArtifact === "live_history" && !liveHistoryAvailable) {
+      setSelectedArtifact("raw");
+    }
+  }, [diffAvailable, liveHistoryAvailable, selectedArtifact]);
 
   useEffect(() => {
     if (selectedArtifactUrl || isUploading) {
@@ -170,7 +188,7 @@ export default function Captures() {
             {followLive ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
             {followLive ? "Live Sync On" : "Sync Disabled"}
           </Button>
-          <Button variant="outline" size="sm" className="h-9 gap-2 px-4 text-xs font-semibold" asChild disabled={!selectedArtifactUrl || selectedArtifact === "diff"}>
+          <Button variant="outline" size="sm" className="h-9 gap-2 px-4 text-xs font-semibold" asChild disabled={!selectedArtifactUrl || selectedArtifact === "diff" || selectedArtifact === "live_history"}>
             <a href={selectedArtifactUrl || "#"} download>
               <Download className="h-3.5 w-3.5" /> Export Artifact
             </a>
@@ -275,6 +293,13 @@ export default function Captures() {
                       >
                         <SplitSquareVertical className="h-3.5 w-3.5" /> Diff
                       </TabsTrigger>
+                      <TabsTrigger
+                        value="live_history"
+                        disabled={!liveHistoryAvailable}
+                        className="h-8 px-4 text-xs font-medium gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-border/60"
+                      >
+                        <Film className="h-3.5 w-3.5" /> Live History
+                      </TabsTrigger>
                     </TabsList>
                     <div className="text-[10px] font-mono font-medium text-muted-foreground bg-muted/30 px-3 py-1.5 rounded border border-border/40">
                       ID: {selectedCapture.capture_id}
@@ -283,7 +308,16 @@ export default function Captures() {
 
                   <div className="flex-1 relative flex items-center justify-center p-4 sm:p-12 bg-muted/[0.02]">
                     <TabsContent value={selectedArtifact} className="m-0 w-full h-full flex flex-col outline-none">
-                      {selectedArtifact === 'diff' ? (
+                      {selectedArtifact === 'live_history' ? (
+                        liveHistoryAvailable ? (
+                          <LiveHistoryViewer frames={historyFrames} />
+                        ) : (
+                          <div className="py-20 flex flex-col items-center justify-center text-muted-foreground gap-4">
+                            <Target className="h-12 w-12 opacity-10" />
+                            <p className="text-[10px] font-bold uppercase tracking-widest opacity-40">History Unavailable</p>
+                          </div>
+                        )
+                      ) : selectedArtifact === 'diff' ? (
                         currentRawUrl && previousRawUrl ? (
                           <CaptureDiffViewer
                             currentUrl={currentRawUrl}
