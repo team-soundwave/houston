@@ -168,20 +168,20 @@ def find_cubesat_dir() -> Path | None:
 def ensure_edge_dependencies() -> None:
     cubesat_dir = find_cubesat_dir()
     if cubesat_dir is not None:
-        ensure_python_module(sys.executable, "numpy", ["-m", "pip", "install", "numpy"])
-        ensure_python_module(sys.executable, "cv2", ["-m", "pip", "install", "opencv-python-headless"])
-        ensure_python_module(sys.executable, "picamera2", ["-m", "pip", "install", "picamera2"], required=False)
+        ensure_python_module(sys.executable, "numpy", "numpy")
+        ensure_python_module(sys.executable, "cv2", "opencv-python-headless")
+        ensure_python_module(sys.executable, "picamera2", "picamera2", required=False)
         return
     venv_python = ROOT / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
-    if venv_python.exists(): ensure_python_module(str(venv_python), "picamera2", ["-m", "pip", "install", "picamera2"], required=False)
+    if venv_python.exists(): ensure_python_module(str(venv_python), "picamera2", "picamera2", required=False)
 
 
-def ensure_python_module(python_exe: str, module: str, install_args: list[str], required: bool = True) -> None:
+def ensure_python_module(python_exe: str, module: str, package: str, required: bool = True) -> None:
     check = subprocess.run([python_exe, "-c", f"import {module}"], capture_output=True)
     if check.returncode == 0:
         return
     try:
-        run_step([python_exe, *install_args], ROOT, f"Installing {module}")
+        run_step(["uv", "pip", "install", "--python", python_exe, package], ROOT, f"Installing {module}")
     except subprocess.CalledProcessError:
         if required:
             raise
