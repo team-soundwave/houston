@@ -70,21 +70,31 @@ class PicameraFrameSource:
         self.height = height
         self.exposure_time_usec = exposure_time_usec
         self._camera = None
+        self.last_error: str | None = None
 
     def capture_array(self) -> np.ndarray:
-        return self._ensure_camera().capture_array()
+        try:
+            frame = self._ensure_camera().capture_array()
+        except Exception as exc:
+            self.last_error = str(exc)
+            raise
+        self.last_error = None
+        return frame
 
     def available(self) -> bool:
         try:
             self._ensure_camera()
-        except Exception:
+        except Exception as exc:
+            self.last_error = str(exc)
             return False
+        self.last_error = None
         return True
 
     def close(self) -> None:
         if self._camera is not None:
             self._camera.stop()
             self._camera = None
+        self.last_error = None
 
     def _ensure_camera(self):
         if self._camera is not None:

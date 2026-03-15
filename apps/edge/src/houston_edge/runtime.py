@@ -1,8 +1,7 @@
 from __future__ import annotations
 import asyncio
 import logging
-from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from uuid import uuid4
 import httpx
 from houston_protocol.messages import (
@@ -18,14 +17,10 @@ from .config import EdgeSettings
 from .ground_client import GroundClient
 from .payloads import ack_payload, heartbeat_payload, hello_payload
 from .pipeline import CapturePipeline
+from .runtime_status import RuntimeState, heartbeat_details, snapshot_payload
 from .spool import SpoolStore
 from .uploads import ArtifactUploader
 logger = logging.getLogger(__name__)
-@dataclass
-class RuntimeState:
-    status: DeviceStatus = DeviceStatus.IDLE
-    capturing_enabled: bool = True
-    last_capture_at: datetime | None = None
 class EdgeRuntime:
     def __init__(self, settings: EdgeSettings) -> None:
         self.settings = settings
@@ -59,27 +54,21 @@ class EdgeRuntime:
             self.pipeline.close()
     async def snapshot(self) -> dict:
         queue_depth = await self.spool.queue_depth()
-        return {
-            "device_id": self.settings.device_id,
-            "status": self.state.status,
-            "capturing_enabled": self.state.capturing_enabled,
-            "last_capture_at": self.state.last_capture_at,
-            "queue_depth": queue_depth,
-            "ground_connected": self._ground_client.is_connected(),
-            "camera_available": self._camera_available(),
-            "recent_captures": [item.capture.capture_id for item in await self.spool.latest_manifests()],
-            "settings": {
-                "edge_mode": self.settings.edge_mode,
-                "capture_interval_seconds": self.settings.capture_interval_seconds,
-                "capture_source": self.settings.capture_source,
-                "adcs_source": self.settings.adcs_source,
-                "bridge_watch_dir": str(self.settings.bridge_watch_dir) if self.settings.bridge_watch_dir else None,
-                "anomaly_threshold": self.settings.anomaly_threshold,
-                "minimum_region_area": self.settings.minimum_region_area,
-            },
-        }
+        recent_captures = [item.capture.capture_id for item in await self.spool.latest_manifests()]
+        return snapshot_payload(
+            self.settings,
+            self.state,
+            self._ground_client.is_connected(),
+            queue_depth,
+            self._camera_available(),
+            self._adcs_available(),
+            recent_captures,
+            self.pipeline,
+        )
 
     async def trigger_capture(self, reason: str = "manual") -> None:
+        self.state.last_trigger_reason = reason
+        logger.info("capture queued: %s", reason)
         await self._manual_captures.put(reason)
 
     async def handle_command(self, command: CommandPayload) -> None:
@@ -116,6 +105,7 @@ class EdgeRuntime:
         while True:
             if not self._capture_ready():
                 self.state.status = DeviceStatus.ERROR
+                self.state.last_capture_error = self._capture_blocked_reason()
                 await asyncio.sleep(self.settings.capture_interval_seconds)
                 continue
             if not self.state.capturing_enabled:
@@ -125,7 +115,13 @@ class EdgeRuntime:
                     await asyncio.wait_for(self._manual_captures.get(), timeout=self.settings.capture_interval_seconds)
                 except TimeoutError:
                     pass
-            await self._capture_once()
+            try:
+                await self._capture_once()
+                self.state.last_capture_error = None
+            except Exception as exc:
+                self.state.status = DeviceStatus.ERROR
+                self.state.last_capture_error = str(exc)
+                logger.exception("capture failed")
 
     async def _bridge_loop(self) -> None:
         while True:
@@ -145,7 +141,9 @@ class EdgeRuntime:
 
     async def _capture_once(self) -> None:
         capture_id = f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%S')}-{uuid4().hex[:6]}"
+        self.state.last_capture_attempt_at = datetime.now(UTC)
         self.state.status = DeviceStatus.CAPTURING
+        logger.info("starting capture %s", capture_id)
         await self._ground_client.emit(
             WsEnvelope(
                 type=EventType.CAPTURE_STARTED,
@@ -169,6 +167,7 @@ class EdgeRuntime:
     async def _complete_capture(self, capture) -> None:
         self.state.status = DeviceStatus.IDLE
         self.state.last_capture_at = capture.timestamp
+        logger.info("capture completed %s", capture.capture_id)
         await self._ground_client.emit(
             WsEnvelope(
                 type=EventType.CAPTURE_COMPLETED,
@@ -217,7 +216,7 @@ class EdgeRuntime:
             last_capture_at=self.state.last_capture_at,
             camera_available=self._camera_available(),
             adcs_available=self._adcs_available(),
-            details=self._heartbeat_details(),
+            details=heartbeat_details(self.settings, self.state, self._is_bridge_mode, self.pipeline),
         )
 
     @property
@@ -230,20 +229,3 @@ class EdgeRuntime:
 
     def _capture_ready(self) -> bool:
         return self._camera_available()
-
-    def _heartbeat_details(self) -> dict:
-        next_capture_due_at = None
-        if (
-            not self._is_bridge_mode
-            and self.state.capturing_enabled
-            and self.state.last_capture_at is not None
-        ):
-            next_capture_due_at = (
-                self.state.last_capture_at + timedelta(seconds=self.settings.capture_interval_seconds)
-            ).isoformat()
-        return {
-            "capturing_enabled": self.state.capturing_enabled,
-            "capture_interval_seconds": self.settings.capture_interval_seconds,
-            "next_capture_due_at": next_capture_due_at,
-            "capture_blocked_reason": None if self._camera_available() else "camera_unavailable",
-        }
