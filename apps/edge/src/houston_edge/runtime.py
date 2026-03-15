@@ -38,7 +38,6 @@ class EdgeRuntime:
         self._http_client = httpx.AsyncClient(timeout=30.0)
         self._uploader = ArtifactUploader(settings, self.spool, self._http_client)
         self._ground_client = GroundClient(self.settings.ground_ws_url, hello_payload(self.settings), self.handle_command)
-
     async def start(self) -> None:
         self._tasks = [
             asyncio.create_task(self._ground_client.run(), name="ground-client"),
@@ -58,7 +57,6 @@ class EdgeRuntime:
         await self._http_client.aclose()
         if self.pipeline is not None:
             self.pipeline.close()
-
     async def snapshot(self) -> dict:
         queue_depth = await self.spool.queue_depth()
         return {
@@ -227,12 +225,11 @@ class EdgeRuntime:
         return self.settings.capture_source == "bridge"
     def _camera_available(self) -> bool:
         return self.bridge.available() if self._is_bridge_mode and self.bridge is not None else self.pipeline.camera_available() if self.pipeline is not None else False
-
     def _adcs_available(self) -> bool:
         return False if self._is_bridge_mode or self.pipeline is None else self.pipeline.adcs_available()
 
     def _capture_ready(self) -> bool:
-        return self._camera_available() and self._adcs_available()
+        return self._camera_available()
 
     def _heartbeat_details(self) -> dict:
         next_capture_due_at = None
@@ -248,4 +245,5 @@ class EdgeRuntime:
             "capturing_enabled": self.state.capturing_enabled,
             "capture_interval_seconds": self.settings.capture_interval_seconds,
             "next_capture_due_at": next_capture_due_at,
+            "capture_blocked_reason": None if self._camera_available() else "camera_unavailable",
         }

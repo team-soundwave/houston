@@ -173,7 +173,7 @@ class CaptureRecord(BaseModel):
 
 
 class UIEvent(BaseModel):
-    topic: Literal["device", "capture", "command", "event"]
+    topic: Literal["device", "capture", "capture_deleted", "command", "event"]
     emitted_at: datetime
     data: dict[str, Any]
 

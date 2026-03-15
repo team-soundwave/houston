@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from houston_edge.artifacts import build_capture_bundle
+from houston_edge.pipeline import CapturePipeline
 from houston_edge.config import EdgeSettings
 from houston_edge.processing import compress_matrix, compute_dust_intensity, detect_dust_regions
 from houston_protocol.messages import ADCSState
@@ -59,3 +60,33 @@ def test_real_mode_requires_real_sources() -> None:
 
     assert settings.edge_mode == "real"
     assert bridge_settings.capture_source == "bridge"
+
+
+def test_capture_pipeline_falls_back_when_adcs_is_unavailable() -> None:
+    class StaticFrameSource:
+        def capture_array(self) -> np.ndarray:
+            return np.zeros((16, 16, 3), dtype=np.uint8)
+
+        def available(self) -> bool:
+            return True
+
+        def close(self) -> None:
+            return None
+
+    class MissingADCS:
+        def available(self) -> bool:
+            return False
+
+        def get_state(self) -> ADCSState:
+            raise RuntimeError("ADCS unavailable")
+
+    pipeline = CapturePipeline(
+        EdgeSettings(edge_mode="real", capture_source="picamera", adcs_source="mock"),
+        frame_source=StaticFrameSource(),
+        adcs_provider=MissingADCS(),
+    )
+
+    bundle = pipeline.run_capture("capture-test")
+
+    assert bundle.packet.adcs.position_mcmf == [0.0, 0.0, 0.0]
+    assert bundle.packet.adcs.velocity_mps == [0.0, 0.0, 0.0]

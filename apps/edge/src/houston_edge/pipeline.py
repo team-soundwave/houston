@@ -7,6 +7,7 @@ from .artifacts import CaptureBundle, build_capture_bundle
 from .camera import FrameSource, build_frame_source
 from .config import EdgeSettings
 from .processing import compress_matrix, compute_dust_intensity, detect_dust_regions
+from houston_protocol.messages import ADCSState
 
 
 class CapturePipeline:
@@ -37,7 +38,7 @@ class CapturePipeline:
 
     def run_capture(self, capture_id: str) -> CaptureBundle:
         captured_at = datetime.now(UTC)
-        adcs_state = self.adcs.get_state()
+        adcs_state = self._adcs_state(captured_at)
         image = self.frame_source.capture_array()
         intensity = compute_dust_intensity(image)
         mask, regions = detect_dust_regions(
@@ -56,3 +57,14 @@ class CapturePipeline:
             matrix=matrix,
             regions=regions,
         )
+
+    def _adcs_state(self, captured_at: datetime) -> ADCSState:
+        try:
+            return self.adcs.get_state()
+        except Exception:
+            return ADCSState(
+                timestamp=captured_at.timestamp(),
+                position_mcmf=[0.0, 0.0, 0.0],
+                velocity_mps=[0.0, 0.0, 0.0],
+                attitude_quaternion=[1.0, 0.0, 0.0, 0.0],
+            )
