@@ -20,27 +20,24 @@ class SimulatorFrameSource:
     def __init__(self, width: int, height: int) -> None:
         self.width = width
         self.height = height
-        self.frame_index = 0
+        self._image = self._load_example_frame(width, height)
 
     def capture_array(self) -> np.ndarray:
-        x = np.linspace(0, 1, self.width, dtype=np.float32)
-        y = np.linspace(0, 1, self.height, dtype=np.float32)
-        xv, yv = np.meshgrid(x, y)
-        gradient = 40 + 80 * xv + 20 * np.sin((yv * 6) + (self.frame_index * 0.25))
-        image = np.stack([gradient * 0.7, gradient * 0.8, gradient], axis=2)
-        for offset in range(4):
-            cx = int((0.15 + ((self.frame_index * 0.03) + (offset * 0.19)) % 0.7) * self.width)
-            cy = int((0.2 + ((self.frame_index * 0.04) + (offset * 0.13)) % 0.6) * self.height)
-            cv2.circle(image, (cx, cy), 16 + (offset * 6), (180 + offset * 15, 210 + offset * 8, 250), -1)
-        self.frame_index += 1
-        noise = np.random.normal(0, 10, size=image.shape)
-        return np.clip(image + noise, 0, 255).astype(np.uint8)
+        return self._image.copy()
 
     def available(self) -> bool:
         return True
 
     def close(self) -> None:
         return None
+
+    @staticmethod
+    def _load_example_frame(width: int, height: int) -> np.ndarray:
+        path = Path(__file__).resolve().parents[2] / "assets" / "mock_example.webp"
+        image = cv2.imread(str(path))
+        if image is None:
+            raise RuntimeError(f"failed to load simulator image: {path}")
+        return cv2.resize(image, (width, height), interpolation=cv2.INTER_AREA)
 
 
 class DirectoryFrameSource:
