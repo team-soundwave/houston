@@ -4,6 +4,7 @@ import { useTelemetry } from "../contexts/TelemetryContext";
 import { adcsAvailable, adcsSource, bridgeWatchDir, captureInterval, captureSource, capturingEnabled, deviceMode, nextCaptureDueAt } from "../lib/device-runtime";
 import { buildLinkMetrics, formatBytes } from "../lib/link-metrics";
 import { groundHttpBase, groundWsBase } from "../lib/runtime-url";
+import { BadgeCheck, Download, Upload } from "lucide-react";
 
 const apiBase = groundHttpBase();
 const wsBase = groundWsBase();
@@ -44,28 +45,102 @@ export default function Settings() {
       <Card className="shadow-none">
         <CardHeader>
           <CardTitle>Link Telemetry</CardTitle>
-          <CardDescription>Derived from artifact transfer state on the ground backend.</CardDescription>
+          <CardDescription>
+            Single-image uplink model: only the raw image per capture is counted for payload transfer. JPEG compression is applied before link accounting.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <div className="rounded-lg border p-4">
-            <div className="text-xs uppercase text-muted-foreground">Uploaded Data</div>
-            <div className="mt-1 text-xl font-semibold">{formatBytes(linkMetrics.uploadedBytes)}</div>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <div className="rounded-lg border p-4">
+              <div className="text-xs uppercase text-muted-foreground">Uplink (compressed)</div>
+              <div className="mt-1 text-xl font-semibold">{formatBytes(linkMetrics.uplinkBytes)}</div>
+              <div className="mt-1 text-[11px] text-muted-foreground">Raw image bytes after JPEG model</div>
+            </div>
+            <div className="rounded-lg border p-4">
+              <div className="text-xs uppercase text-muted-foreground">Downlink (estimated)</div>
+              <div className="mt-1 text-xl font-semibold">{formatBytes(linkMetrics.downlinkBytes)}</div>
+              <div className="mt-1 text-[11px] text-muted-foreground">Control plane + status telemetry</div>
+            </div>
+            <div className="rounded-lg border p-4">
+              <div className="text-xs uppercase text-muted-foreground">Estimated Throughput</div>
+              <div className="mt-1 text-xl font-semibold">{formatBytes(linkMetrics.estimatedBytesPerSecond)}/s</div>
+            </div>
+            <div className="rounded-lg border p-4">
+              <div className="text-xs uppercase text-muted-foreground">Queue Depth</div>
+              <div className="mt-1 text-xl font-semibold">{linkMetrics.queueDepth}</div>
+            </div>
+            <div className="rounded-lg border p-4">
+              <div className="text-xs uppercase text-muted-foreground">Compression Ratio</div>
+              <div className="mt-1 text-xl font-semibold">{Math.round(linkMetrics.compressionRatio * 100)}%</div>
+              <div className="mt-1 text-[11px] text-muted-foreground">Image bytes saved: {formatBytes(linkMetrics.rawSavingsBytes)}</div>
+            </div>
           </div>
-          <div className="rounded-lg border p-4">
-            <div className="text-xs uppercase text-muted-foreground">Pending Data</div>
-            <div className="mt-1 text-xl font-semibold">{formatBytes(linkMetrics.pendingBytes)}</div>
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="rounded-lg border p-4">
+              <div className="flex items-center justify-between text-xs uppercase text-muted-foreground">
+                <span>Single-image Source</span>
+                <Upload className="h-3.5 w-3.5" />
+              </div>
+              <div className="mt-1 text-lg font-semibold">{formatBytes(linkMetrics.rawSourceBytes)}</div>
+              <div className="mt-1 text-[11px] text-muted-foreground">{linkMetrics.rawUploads + linkMetrics.rawPendings} raw captures in feed</div>
+            </div>
+            <div className="rounded-lg border p-4">
+              <div className="flex items-center justify-between text-xs uppercase text-muted-foreground">
+                <span>Raw Transfer Status</span>
+                <Download className="h-3.5 w-3.5" />
+              </div>
+              <div className="mt-1 text-lg font-semibold">
+                {formatBytes(linkMetrics.uploadedBytes)} / {formatBytes(linkMetrics.pendingBytes)}
+              </div>
+              <div className="mt-1 text-[11px] text-muted-foreground">uploaded / pending (uplink queue)</div>
+            </div>
+            <div className="rounded-lg border p-4">
+              <div className="flex items-center justify-between text-xs uppercase text-muted-foreground">
+                <span>Payload Breakdown</span>
+                <BadgeCheck className="h-3.5 w-3.5" />
+              </div>
+              <div className="mt-1 text-sm">
+                <p className="text-[11px] leading-6 text-muted-foreground">
+                  Excluded from uplink:
+                </p>
+                <p className="mt-1 text-xs">
+                  intensity/mask/matrix/packet: {formatBytes(linkMetrics.excludedUploadedBytes + linkMetrics.excludedPendingBytes)}
+                </p>
+              </div>
+            </div>
           </div>
-          <div className="rounded-lg border p-4">
-            <div className="text-xs uppercase text-muted-foreground">Estimated Throughput</div>
-            <div className="mt-1 text-xl font-semibold">{formatBytes(linkMetrics.estimatedBytesPerSecond)}/s</div>
-          </div>
-          <div className="rounded-lg border p-4">
-            <div className="text-xs uppercase text-muted-foreground">Uploaded Artifacts</div>
-            <div className="mt-1 text-xl font-semibold">{linkMetrics.uploadedArtifacts}</div>
-          </div>
-          <div className="rounded-lg border p-4">
-            <div className="text-xs uppercase text-muted-foreground">Edge Queue Depth</div>
-            <div className="mt-1 text-xl font-semibold">{linkMetrics.queueDepth}</div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="rounded-lg border p-4">
+              <div className="text-xs uppercase text-muted-foreground">Breakdown: Downlink</div>
+              <div className="mt-1 text-sm">
+                <div className="flex justify-between py-1">
+                  <span>Capture metadata</span>
+                  <span className="font-mono">{formatBytes((linkMetrics.downlinkBytes / Math.max(linkMetrics.rawUploads + linkMetrics.rawPendings, 1) * 0.85) || 0)}</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span>Heartbeats/ack</span>
+                  <span className="font-mono">{formatBytes((linkMetrics.downlinkBytes / Math.max(linkMetrics.rawUploads + linkMetrics.rawPendings, 1) * 0.15) || 0)}</span>
+                </div>
+                <div className="mt-2 flex items-center justify-between border-t border-border/50 pt-2 text-xs text-muted-foreground">
+                  <span>Total downlink estimate</span>
+                  <span className="font-mono font-bold">{formatBytes(linkMetrics.downlinkBytes)}</span>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-lg border p-4 md:col-span-2">
+              <div className="text-xs uppercase text-muted-foreground">How bandwidth is being counted</div>
+              <div className="mt-1 text-sm text-muted-foreground">
+                <p>
+                  Every capture contributes one raw image artifact to uplink accounting.
+                  Non-raw artifacts (intensity, mask, matrix, packet, etc.) are out of scope
+                  for payload transfer and are shown above as excluded bytes.
+                </p>
+                <p className="mt-2">
+                  Total transfer model used: <span className="font-semibold text-foreground">Uplink = source raw image × 10% JPEG transfer + Downlink estimate</span>.
+                </p>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

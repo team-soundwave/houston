@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { Separator } from "../components/ui/separator";
 import { artifactUrl, useTelemetry } from "../contexts/TelemetryContext";
 import { captureInterval, capturingEnabled, deviceMode, nextCaptureDueAt } from "../lib/device-runtime";
-import { buildLinkMetrics, formatBytes } from "../lib/link-metrics";
+import { buildLinkMetrics, formatBytes, JPEG_COMPRESSION_RATIO } from "../lib/link-metrics";
 import MatrixHeatmap from "../components/captures/MatrixHeatmap";
 import { cn } from "../lib/utils";
 import { useState, useEffect, useMemo } from "react";
@@ -27,6 +27,12 @@ export default function Overview() {
   const nextCapture = primaryDevice ? nextCaptureDueAt(primaryDevice) : null;
   const isCapturing = primaryDevice ? capturingEnabled(primaryDevice) : false;
   const linkMetrics = buildLinkMetrics(captures, devices);
+  const transferBytesFromRaw = (capture: typeof latestCapture) => {
+    if (!capture) return 0;
+    const rawArtifact = capture.artifacts?.find((artifact) => artifact.kind === "raw");
+    if (!rawArtifact) return 0;
+    return Math.round(rawArtifact.size_bytes * (1 - JPEG_COMPRESSION_RATIO));
+  };
   
   const nextCaptureMs = nextCapture ? new Date(nextCapture).getTime() - now.getTime() : null;
   const nextCaptureLabel =
@@ -44,7 +50,7 @@ export default function Overview() {
   const linkHistory = useMemo(() => {
     return [...orderedCaptures].slice(0, 20).reverse().map(c => ({
       time: new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      size: c.artifacts.reduce((acc, a) => acc + (a.size_bytes / 1024), 0),
+      size: transferBytesFromRaw(c) / 1024,
       dets: c.region_count
     }));
   }, [orderedCaptures]);
@@ -284,8 +290,9 @@ export default function Overview() {
             </CardHeader>
             <CardContent className="p-4 space-y-3">
               {[
-                { label: "Data Ingested", value: formatBytes(linkMetrics.uploadedBytes) },
-                { label: "Buffer Depth", value: formatBytes(linkMetrics.pendingBytes) },
+                { label: "Uplink (raw + JPEG)", value: formatBytes(linkMetrics.uplinkBytes) },
+                { label: "Downlink (est.)", value: formatBytes(linkMetrics.downlinkBytes) },
+                { label: "Queued Outbound", value: formatBytes(linkMetrics.pendingBytes) },
                 { label: "Transfer Rate", value: `${formatBytes(linkMetrics.estimatedBytesPerSecond)}/s`, color: "text-emerald-600" },
               ].map((m, idx) => (
                 <div key={idx} className="flex items-center justify-between border-b border-border/40 pb-2 last:border-0 last:pb-0">
@@ -293,6 +300,23 @@ export default function Overview() {
                   <span className={cn("font-mono text-xs font-bold", m.color)}>{m.value}</span>
                 </div>
               ))}
+              <div className="rounded-lg border border-border/50 p-3 bg-muted/30">
+                <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.18em]">Budget Breakdown</div>
+                <div className="mt-2 grid gap-2 text-xs">
+                  <div className="flex justify-between">
+                    <span>Raw source</span>
+                    <span className="font-mono">{formatBytes(linkMetrics.rawSourceBytes)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Compression savings ({Math.round(linkMetrics.compressionRatio * 100)}%)</span>
+                    <span className="font-mono">{formatBytes(linkMetrics.rawSavingsBytes)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Bandwidth scope</span>
+                    <span className="font-mono">raw only</span>
+                  </div>
+                </div>
+              </div>
               <div className="pt-2">
                 <div className="flex items-center justify-between text-[10px] text-muted-foreground/60 font-bold uppercase tracking-widest">
                   <span>Last Handshake</span>

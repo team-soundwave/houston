@@ -1,57 +1,123 @@
 import type { CaptureRecord, DeviceRecord } from "../types";
 
+export const JPEG_COMPRESSION_RATIO = 0.9;
+const JPEG_TRANSFER_RATIO = 1 - JPEG_COMPRESSION_RATIO;
+const METADATA_BYTES_PER_CAPTURE = 512;
+const HEARTBEAT_BYTES_PER_DEVICE = 128;
+
 export type LinkMetrics = {
   uploadedBytes: number;
   pendingBytes: number;
+  rawSourceBytes: number;
+  compressionRatio: number;
+  rawSavingsBytes: number;
+  rawUploads: number;
+  rawPendings: number;
   uploadedArtifacts: number;
   pendingArtifacts: number;
+  excludedUploadedBytes: number;
+  excludedPendingBytes: number;
   estimatedBytesPerSecond: number;
   queueDepth: number;
+  uplinkBytes: number;
+  downlinkBytes: number;
 };
+
+const safeParseDate = (value: string): number => {
+  const ts = Date.parse(value);
+  return Number.isFinite(ts) ? ts : 0;
+};
+
+const getRawArtifact = (capture: CaptureRecord) => capture.artifacts?.find((artifact) => artifact.kind === "raw");
+const getTransferBytes = (size: number) => Math.max(0, Math.round(size * JPEG_TRANSFER_RATIO));
 
 export function buildLinkMetrics(captures: CaptureRecord[], devices: DeviceRecord[]): LinkMetrics {
   let uploadedBytes = 0;
   let pendingBytes = 0;
+  let rawSourceBytes = 0;
+  let rawSavingsBytes = 0;
+  let rawUploads = 0;
+  let rawPendings = 0;
   let uploadedArtifacts = 0;
   let pendingArtifacts = 0;
+  let excludedUploadedBytes = 0;
+  let excludedPendingBytes = 0;
+  const uploadedRawSamples: Array<{ timestamp: number; bytes: number }> = [];
 
   for (const capture of captures) {
-    for (const artifact of capture.artifacts ?? []) {
-      if (artifact.uploaded) {
-        uploadedBytes += artifact.size_bytes;
+    const rawArtifact = getRawArtifact(capture);
+    const rawSize = rawArtifact?.size_bytes ?? 0;
+
+    if (rawArtifact) {
+      rawSourceBytes += rawSize;
+      const transferredBytes = getTransferBytes(rawSize);
+      if (rawArtifact.uploaded) {
+        uploadedBytes += transferredBytes;
         uploadedArtifacts += 1;
+        rawUploads += 1;
+        uploadedRawSamples.push({
+          timestamp: safeParseDate(capture.timestamp),
+          bytes: transferredBytes,
+        });
       } else {
-        pendingBytes += artifact.size_bytes;
+        pendingBytes += transferredBytes;
         pendingArtifacts += 1;
+        rawPendings += 1;
+      }
+      rawSavingsBytes += Math.max(0, rawSize - transferredBytes);
+    }
+
+    for (const artifact of capture.artifacts ?? []) {
+      if (artifact.kind === "raw") {
+        continue;
+      }
+      if (artifact.uploaded) {
+        excludedUploadedBytes += artifact.size_bytes;
+      } else {
+        excludedPendingBytes += artifact.size_bytes;
       }
     }
   }
 
   const queueDepth = devices.reduce((sum, device) => sum + device.queue_depth, 0);
-  const recentCaptures = captures
-    .filter((capture) => capture.artifacts?.some((artifact) => artifact.uploaded))
-    .slice(0, 12);
+  const recentUploadedRaw = [...uploadedRawSamples]
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, 12)
+    .sort((a, b) => a.timestamp - b.timestamp);
 
   let estimatedBytesPerSecond = 0;
-  if (recentCaptures.length >= 2) {
-    const newest = new Date(recentCaptures[0].timestamp).getTime();
-    const oldest = new Date(recentCaptures[recentCaptures.length - 1].timestamp).getTime();
+  if (recentUploadedRaw.length >= 2) {
+    const oldest = recentUploadedRaw[0].timestamp;
+    const newest = recentUploadedRaw[recentUploadedRaw.length - 1].timestamp;
     const seconds = Math.max((newest - oldest) / 1000, 1);
-    const bytes = recentCaptures.reduce(
-      (sum, capture) =>
-        sum + capture.artifacts.filter((artifact) => artifact.uploaded).reduce((inner, artifact) => inner + artifact.size_bytes, 0),
-      0
-    );
+    const bytes = recentUploadedRaw.reduce((sum, sample) => sum + sample.bytes, 0);
     estimatedBytesPerSecond = bytes / seconds;
   }
+
+  const rawCaptureCount = captures.filter((capture) => getRawArtifact(capture)).length;
+  const connectedDevices = devices.filter((device) => device.connected).length;
+  const downlinkBytes = Math.max(
+    0,
+    rawCaptureCount * METADATA_BYTES_PER_CAPTURE + connectedDevices * HEARTBEAT_BYTES_PER_DEVICE
+  );
+  const uplinkBytes = uploadedBytes + pendingBytes;
 
   return {
     uploadedBytes,
     pendingBytes,
+    rawSourceBytes,
+    compressionRatio: JPEG_COMPRESSION_RATIO,
+    rawUploads,
+    rawPendings,
+    rawSavingsBytes,
     uploadedArtifacts,
     pendingArtifacts,
+    excludedUploadedBytes,
+    excludedPendingBytes,
     estimatedBytesPerSecond,
     queueDepth,
+    uplinkBytes,
+    downlinkBytes,
   };
 }
 
