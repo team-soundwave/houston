@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Blend, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { Badge } from "../ui/badge";
-import { Button } from "../ui/button";
 
 type HistoryFrame = {
   captureId: string;
@@ -65,17 +64,6 @@ export default function LiveHistoryViewer({ frames }: Props) {
   const [loaded, setLoaded] = useState<Record<string, HTMLImageElement>>({});
   const [error, setError] = useState<string | null>(null);
   const [building, setBuilding] = useState(false);
-  const [startCaptureId, setStartCaptureId] = useState(frames[0]?.captureId ?? "");
-  const [endCaptureId, setEndCaptureId] = useState(frames.at(-1)?.captureId ?? "");
-
-  useEffect(() => {
-    if (!frames.find((frame) => frame.captureId === startCaptureId)) {
-      setStartCaptureId(frames[0]?.captureId ?? "");
-    }
-    if (!frames.find((frame) => frame.captureId === endCaptureId)) {
-      setEndCaptureId(frames.at(-1)?.captureId ?? "");
-    }
-  }, [endCaptureId, frames, startCaptureId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,11 +80,7 @@ export default function LiveHistoryViewer({ frames }: Props) {
     };
   }, [frames]);
 
-  const selectedFrames = useMemo(() => {
-    const startIndex = Math.max(0, frames.findIndex((frame) => frame.captureId === startCaptureId));
-    const endIndex = Math.max(startIndex, frames.findIndex((frame) => frame.captureId === endCaptureId));
-    return frames.slice(startIndex, endIndex + 1);
-  }, [endCaptureId, frames, startCaptureId]);
+  const selectedFrames = useMemo(() => [...frames], [frames]);
 
   useEffect(() => {
     if (!canvasRef.current || selectedFrames.length < 2) return;
@@ -193,28 +177,16 @@ export default function LiveHistoryViewer({ frames }: Props) {
 
   return (
     <div className="flex h-full flex-col gap-4">
-      <div className="grid grid-cols-1 xl:grid-cols-[240px_240px_1fr_auto] gap-4 items-end">
-        <label className="flex flex-col gap-2 text-xs font-semibold text-muted-foreground">
-          Range start
-          <select value={startCaptureId} onChange={(event) => setStartCaptureId(event.target.value)} className="h-10 rounded-md border bg-background px-3 text-sm text-foreground">
-            {frames.map((frame) => (
-              <option key={`start-${frame.captureId}`} value={frame.captureId}>
-                {frameLabel(frame)}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="flex flex-col gap-2 text-xs font-semibold text-muted-foreground">
-          Range end
-          <select value={endCaptureId} onChange={(event) => setEndCaptureId(event.target.value)} className="h-10 rounded-md border bg-background px-3 text-sm text-foreground">
-            {frames.map((frame) => (
-              <option key={`end-${frame.captureId}`} value={frame.captureId}>
-                {frameLabel(frame)}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_1fr_auto] gap-4 items-end">
+        <div className="rounded-lg border bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground">
+          <div className="font-semibold uppercase tracking-wide text-foreground">Live history window</div>
+          <div className="mt-1">
+            Earliest: {frameLabel(frames[0] ?? { captureId: "N/A", timestamp: "", url: "" })}
+          </div>
+          <div>
+            Latest: {frameLabel(selectedFrames.at(-1) ?? { captureId: "N/A", timestamp: "", url: "" })}
+          </div>
+        </div>
 
         <div className="space-y-2">
           <div className="text-[10px] font-mono uppercase text-muted-foreground">
@@ -226,11 +198,6 @@ export default function LiveHistoryViewer({ frames }: Props) {
             <span>Latest changes</span>
           </div>
         </div>
-
-        <Button variant="outline" size="sm" onClick={() => { setStartCaptureId(frames[0]?.captureId ?? ""); setEndCaptureId(frames.at(-1)?.captureId ?? ""); }}>
-          <Blend className="h-3.5 w-3.5 mr-2" />
-          Full Range
-        </Button>
       </div>
 
       <div className="flex items-center gap-2 text-[10px] font-mono uppercase text-muted-foreground">

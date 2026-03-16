@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
-import { AlertTriangle, Database, Satellite, Waves, Clock, Activity, ImageIcon, Maximize2, ExternalLink, Loader2, CloudDownload, Zap, BarChart3, SignalHigh } from "lucide-react";
+import { AlertTriangle, Database, Satellite, Waves, Clock, Activity, ImageIcon, ExternalLink, Loader2, CloudDownload, Zap, BarChart3, SignalHigh } from "lucide-react";
 import { Bar, BarChart, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Area, AreaChart } from "recharts";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
@@ -10,7 +10,6 @@ import { Separator } from "../components/ui/separator";
 import { artifactUrl, useTelemetry } from "../contexts/TelemetryContext";
 import { captureInterval, capturingEnabled, deviceMode, nextCaptureDueAt } from "../lib/device-runtime";
 import { buildLinkMetrics, formatBytes, JPEG_COMPRESSION_RATIO } from "../lib/link-metrics";
-import MatrixHeatmap from "../components/captures/MatrixHeatmap";
 import { cn } from "../lib/utils";
 import { useState, useEffect, useMemo } from "react";
 
@@ -123,9 +122,6 @@ export default function Overview() {
                       <TabsTrigger value="optical" className="h-7 px-3 text-[10px] font-bold uppercase tracking-wider gap-2">
                         <ImageIcon className="h-3 w-3" /> Optical
                       </TabsTrigger>
-                      <TabsTrigger value="heatmap" className="h-7 px-3 text-[10px] font-bold uppercase tracking-wider gap-2">
-                        <Maximize2 className="h-3 w-3" /> Heatmap
-                      </TabsTrigger>
                     </TabsList>
                     <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-2 opacity-60 hidden sm:block">
                       Peak Flux: {latestCapture.max_intensity.toFixed(2)}
@@ -172,9 +168,6 @@ export default function Overview() {
                         )}
                       </TabsContent>
                       
-                      <TabsContent value="heatmap" className="m-0 w-full h-full outline-none p-4">
-                        <MatrixHeatmap matrix={latestCapture.matrix_data} />
-                      </TabsContent>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

@@ -5,7 +5,6 @@ import { Download, FileJson, History, ImageIcon, Loader2, Waves, LayoutGrid, Max
 import CaptureComparison from "../components/captures/CaptureComparison";
 import CaptureDiffViewer from "../components/captures/CaptureDiffViewer";
 import LiveHistoryViewer from "../components/captures/LiveHistoryViewer";
-import MatrixHeatmap from "../components/captures/MatrixHeatmap";
 import { Badge } from "../components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card";
 import { ScrollArea } from "../components/ui/scroll-area";
@@ -15,14 +14,13 @@ import { cn } from "../lib/utils";
 import { Button } from "../components/ui/button";
 import { Separator } from "../components/ui/separator";
 
-type ArtifactKind = "raw" | "intensity" | "mask" | "matrix" | "packet";
+type ArtifactKind = "raw" | "intensity" | "mask" | "packet";
 type ViewerTab = ArtifactKind | "diff" | "live_history";
 
 const artifactKinds: { kind: ArtifactKind; label: string; icon: any }[] = [
   { kind: "raw", label: "Optical", icon: ImageIcon },
   { kind: "intensity", label: "Intensity", icon: Waves },
   { kind: "mask", label: "Mask", icon: LayoutGrid },
-  { kind: "matrix", label: "Matrix", icon: Maximize2 },
   { kind: "packet", label: "Metadata", icon: FileJson },
 ];
 
@@ -338,10 +336,6 @@ export default function Captures() {
                               {JSON.stringify(selectedCapture, null, 2)}
                             </pre>
                           </ScrollArea>
-                        </div>
-                      ) : selectedArtifact === 'matrix' ? (
-                        <div className="flex-1 w-full h-full max-w-5xl mx-auto py-4">
-                          <MatrixHeatmap matrix={selectedCapture.matrix_data} />
                         </div>
                       ) : isUploading ? (
                         <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 bg-background/80 backdrop-blur-sm z-20">
