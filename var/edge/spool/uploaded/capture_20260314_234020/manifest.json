@@ -1,0 +1,130 @@
+{
+  "capture": {
+    "capture_id": "capture_20260314_234020",
+    "timestamp": "2026-03-14T23:40:20Z",
+    "adcs": {
+      "timestamp": 1773531620.6069353,
+      "position_mcmf": [
+        1737400.0,
+        0.0,
+        100000.0
+      ],
+      "velocity_mps": [
+        0.0,
+        1600.0,
+        0.0
+      ],
+      "attitude_quaternion": [
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "regions": [
+      {
+        "bbox": [
+          1527,
+          715,
+          393,
+          365
+        ],
+        "area": 2483.0
+      }
+    ],
+    "matrix_shape": [
+      36,
+      64
+    ],
+    "matrix_data": [],
+    "region_count": 1,
+    "max_intensity": 36.0,
+    "mean_intensity": 0.13321952160493827,
+    "artifacts": [
+      {
+        "kind": "raw",
+        "filename": "capture_20260314_234020_raw.png",
+        "content_type": "image/png",
+        "size_bytes": 220491,
+        "sha256": "ac17338b676dc2ad34bda30d557820b1ec7ab712a1494b0580adf11ca08abd72",
+        "uploaded": false,
+        "url": null
+      },
+      {
+        "kind": "intensity",
+        "filename": "capture_20260314_234020_intensity.png",
+        "content_type": "image/png",
+        "size_bytes": 59344,
+        "sha256": "ab4feffa42a814209b921d0fc2282aa4c630f2bcef48551a3f380472e4a212ef",
+        "uploaded": false,
+        "url": null
+      },
+      {
+        "kind": "mask",
+        "filename": "capture_20260314_234020_mask.png",
+        "content_type": "image/png",
+        "size_bytes": 5539,
+        "sha256": "b9502338f3af2f52ceaafd099ae43243f3dbca2ad54ccb056cb26667b8d8f588",
+        "uploaded": false,
+        "url": null
+      },
+      {
+        "kind": "matrix",
+        "filename": "capture_20260314_234020_matrix.npy",
+        "content_type": "application/octet-stream",
+        "size_bytes": 9344,
+        "sha256": "3e54ad50f0fcb22b03f956131c59a3f6075411d6d9f96f121b22939543fe6f5f",
+        "uploaded": false,
+        "url": null
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "kind": "raw",
+      "filename": "capture_20260314_234020_raw.png",
+      "content_type": "image/png",
+      "size_bytes": 220491,
+      "sha256": "ac17338b676dc2ad34bda30d557820b1ec7ab712a1494b0580adf11ca08abd72",
+      "uploaded": true,
+      "url": null
+    },
+    {
+      "kind": "intensity",
+      "filename": "capture_20260314_234020_intensity.png",
+      "content_type": "image/png",
+      "size_bytes": 59344,
+      "sha256": "ab4feffa42a814209b921d0fc2282aa4c630f2bcef48551a3f380472e4a212ef",
+      "uploaded": true,
+      "url": null
+    },
+    {
+      "kind": "mask",
+      "filename": "capture_20260314_234020_mask.png",
+      "content_type": "image/png",
+      "size_bytes": 5539,
+      "sha256": "b9502338f3af2f52ceaafd099ae43243f3dbca2ad54ccb056cb26667b8d8f588",
+      "uploaded": true,
+      "url": null
+    },
+    {
+      "kind": "matrix",
+      "filename": "capture_20260314_234020_matrix.npy",
+      "content_type": "application/octet-stream",
+      "size_bytes": 9344,
+      "sha256": "3e54ad50f0fcb22b03f956131c59a3f6075411d6d9f96f121b22939543fe6f5f",
+      "uploaded": true,
+      "url": null
+    },
+    {
+      "kind": "packet",
+      "filename": "capture_20260314_234020_packet.json",
+      "content_type": "application/json",
+      "size_bytes": 455,
+      "sha256": "a14d7539ef977173a2dfa5d4b8bd6517fb516e49be97b224909342654379eb34",
+      "uploaded": true,
+      "url": null
+    }
+  ],
+  "created_at": "2026-03-14T23:40:22.579625Z"
+}

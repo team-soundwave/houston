@@ -1,0 +1,193 @@
+{
+  "capture": {
+    "capture_id": "capture_20260314_235139",
+    "timestamp": "2026-03-14T23:51:39Z",
+    "adcs": {
+      "timestamp": 1773532298.8755088,
+      "position_mcmf": [
+        1737400.0,
+        0.0,
+        100000.0
+      ],
+      "velocity_mps": [
+        0.0,
+        1600.0,
+        0.0
+      ],
+      "attitude_quaternion": [
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "regions": [
+      {
+        "bbox": [
+          1818,
+          738,
+          6,
+          33
+        ],
+        "area": 88.5
+      },
+      {
+        "bbox": [
+          0,
+          444,
+          5,
+          42
+        ],
+        "area": 72.0
+      },
+      {
+        "bbox": [
+          26,
+          278,
+          14,
+          62
+        ],
+        "area": 54.0
+      },
+      {
+        "bbox": [
+          45,
+          173,
+          14,
+          68
+        ],
+        "area": 58.0
+      },
+      {
+        "bbox": [
+          53,
+          171,
+          17,
+          70
+        ],
+        "area": 59.0
+      },
+      {
+        "bbox": [
+          73,
+          63,
+          17,
+          74
+        ],
+        "area": 77.0
+      },
+      {
+        "bbox": [
+          65,
+          59,
+          15,
+          77
+        ],
+        "area": 74.0
+      },
+      {
+        "bbox": [
+          1727,
+          0,
+          19,
+          1080
+        ],
+        "area": 2651.0
+      }
+    ],
+    "matrix_shape": [
+      36,
+      64
+    ],
+    "matrix_data": [],
+    "region_count": 8,
+    "max_intensity": 42.0,
+    "mean_intensity": 0.2809056712962963,
+    "artifacts": [
+      {
+        "kind": "raw",
+        "filename": "capture_20260314_235139_raw.png",
+        "content_type": "image/png",
+        "size_bytes": 336180,
+        "sha256": "5df7589b6950fe2abcac6a1d72dfa839dae602021ae0888265494bcb36112b5c",
+        "uploaded": false,
+        "url": null
+      },
+      {
+        "kind": "intensity",
+        "filename": "capture_20260314_235139_intensity.png",
+        "content_type": "image/png",
+        "size_bytes": 89135,
+        "sha256": "0150cdd9069196464c17b49bc2faf6e14775cbe7f91249649b8bb6c676ca16fa",
+        "uploaded": false,
+        "url": null
+      },
+      {
+        "kind": "mask",
+        "filename": "capture_20260314_235139_mask.png",
+        "content_type": "image/png",
+        "size_bytes": 9464,
+        "sha256": "6546253254022dbca310b987a0d6e3d14c02a761a1ac4df8edfb8863ac5922a9",
+        "uploaded": false,
+        "url": null
+      },
+      {
+        "kind": "matrix",
+        "filename": "capture_20260314_235139_matrix.npy",
+        "content_type": "application/octet-stream",
+        "size_bytes": 9344,
+        "sha256": "959024cdcae45102f3e948be88964f125461bb3960c37f480ebe76275af41841",
+        "uploaded": false,
+        "url": null
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "kind": "raw",
+      "filename": "capture_20260314_235139_raw.png",
+      "content_type": "image/png",
+      "size_bytes": 336180,
+      "sha256": "5df7589b6950fe2abcac6a1d72dfa839dae602021ae0888265494bcb36112b5c",
+      "uploaded": true,
+      "url": null
+    },
+    {
+      "kind": "intensity",
+      "filename": "capture_20260314_235139_intensity.png",
+      "content_type": "image/png",
+      "size_bytes": 89135,
+      "sha256": "0150cdd9069196464c17b49bc2faf6e14775cbe7f91249649b8bb6c676ca16fa",
+      "uploaded": true,
+      "url": null
+    },
+    {
+      "kind": "mask",
+      "filename": "capture_20260314_235139_mask.png",
+      "content_type": "image/png",
+      "size_bytes": 9464,
+      "sha256": "6546253254022dbca310b987a0d6e3d14c02a761a1ac4df8edfb8863ac5922a9",
+      "uploaded": true,
+      "url": null
+    },
+    {
+      "kind": "matrix",
+      "filename": "capture_20260314_235139_matrix.npy",
+      "content_type": "application/octet-stream",
+      "size_bytes": 9344,
+      "sha256": "959024cdcae45102f3e948be88964f125461bb3960c37f480ebe76275af41841",
+      "uploaded": true,
+      "url": null
+    },
+    {
+      "kind": "packet",
+      "filename": "capture_20260314_235139_packet.json",
+      "content_type": "application/json",
+      "size_bytes": 1185,
+      "sha256": "c731f74892ad7fbec9cb3ca4362f31c78d259d99140a8bf6c8f02e8ad89a5c2f",
+      "uploaded": true,
+      "url": null
+    }
+  ],
+  "created_at": "2026-03-14T23:51:40.433845Z"
+}

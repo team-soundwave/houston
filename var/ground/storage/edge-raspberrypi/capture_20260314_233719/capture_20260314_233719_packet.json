@@ -1,0 +1,37 @@
+{
+  "timestamp": "20260314_233719",
+  "adcs": {
+    "timestamp": 1773531439.1826665,
+    "position_mcmf": [
+      1737400,
+      0,
+      100000
+    ],
+    "velocity_mps": [
+      0,
+      1600,
+      0
+    ],
+    "attitude_quaternion": [
+      1,
+      0,
+      0,
+      0
+    ]
+  },
+  "regions": [
+    {
+      "bbox": [
+        1529,
+        637,
+        391,
+        440
+      ],
+      "area": 2508.5
+    }
+  ],
+  "matrix_shape": [
+    36,
+    64
+  ]
+}

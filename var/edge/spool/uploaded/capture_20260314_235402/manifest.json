@@ -1,0 +1,202 @@
+{
+  "capture": {
+    "capture_id": "capture_20260314_235402",
+    "timestamp": "2026-03-14T23:54:02Z",
+    "adcs": {
+      "timestamp": 1773532442.4735403,
+      "position_mcmf": [
+        1737400.0,
+        0.0,
+        100000.0
+      ],
+      "velocity_mps": [
+        0.0,
+        1600.0,
+        0.0
+      ],
+      "attitude_quaternion": [
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "regions": [
+      {
+        "bbox": [
+          1811,
+          764,
+          7,
+          33
+        ],
+        "area": 80.5
+      },
+      {
+        "bbox": [
+          0,
+          407,
+          6,
+          38
+        ],
+        "area": 66.0
+      },
+      {
+        "bbox": [
+          17,
+          347,
+          14,
+          50
+        ],
+        "area": 52.0
+      },
+      {
+        "bbox": [
+          37,
+          241,
+          18,
+          66
+        ],
+        "area": 58.0
+      },
+      {
+        "bbox": [
+          51,
+          145,
+          16,
+          64
+        ],
+        "area": 69.0
+      },
+      {
+        "bbox": [
+          59,
+          142,
+          18,
+          67
+        ],
+        "area": 61.0
+      },
+      {
+        "bbox": [
+          82,
+          35,
+          19,
+          71
+        ],
+        "area": 73.0
+      },
+      {
+        "bbox": [
+          75,
+          32,
+          16,
+          69
+        ],
+        "area": 71.0
+      },
+      {
+        "bbox": [
+          1711,
+          0,
+          53,
+          1080
+        ],
+        "area": 4703.0
+      }
+    ],
+    "matrix_shape": [
+      36,
+      64
+    ],
+    "matrix_data": [],
+    "region_count": 9,
+    "max_intensity": 42.0,
+    "mean_intensity": 0.28560426311728393,
+    "artifacts": [
+      {
+        "kind": "raw",
+        "filename": "capture_20260314_235402_raw.png",
+        "content_type": "image/png",
+        "size_bytes": 344305,
+        "sha256": "b0b6c6b5a923abbea8f6cd8fe044dea016ab99385c7ebefd4a3a364a2cb3e4c9",
+        "uploaded": false,
+        "url": null
+      },
+      {
+        "kind": "intensity",
+        "filename": "capture_20260314_235402_intensity.png",
+        "content_type": "image/png",
+        "size_bytes": 91600,
+        "sha256": "2df73f9cb11dac2bb2d6a7dee65a94294d3d30ce42cfc33c2924fe81330f715b",
+        "uploaded": false,
+        "url": null
+      },
+      {
+        "kind": "mask",
+        "filename": "capture_20260314_235402_mask.png",
+        "content_type": "image/png",
+        "size_bytes": 9740,
+        "sha256": "b090d03f52f4b8316ff23f3ea2c2cebb51875e1cc9b35906fa85c040e03a6be7",
+        "uploaded": false,
+        "url": null
+      },
+      {
+        "kind": "matrix",
+        "filename": "capture_20260314_235402_matrix.npy",
+        "content_type": "application/octet-stream",
+        "size_bytes": 9344,
+        "sha256": "f8684fc631590af17a38940febe6ae1cc82699775add179c35da466ef7dbc33c",
+        "uploaded": false,
+        "url": null
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "kind": "raw",
+      "filename": "capture_20260314_235402_raw.png",
+      "content_type": "image/png",
+      "size_bytes": 344305,
+      "sha256": "b0b6c6b5a923abbea8f6cd8fe044dea016ab99385c7ebefd4a3a364a2cb3e4c9",
+      "uploaded": true,
+      "url": null
+    },
+    {
+      "kind": "intensity",
+      "filename": "capture_20260314_235402_intensity.png",
+      "content_type": "image/png",
+      "size_bytes": 91600,
+      "sha256": "2df73f9cb11dac2bb2d6a7dee65a94294d3d30ce42cfc33c2924fe81330f715b",
+      "uploaded": true,
+      "url": null
+    },
+    {
+      "kind": "mask",
+      "filename": "capture_20260314_235402_mask.png",
+      "content_type": "image/png",
+      "size_bytes": 9740,
+      "sha256": "b090d03f52f4b8316ff23f3ea2c2cebb51875e1cc9b35906fa85c040e03a6be7",
+      "uploaded": true,
+      "url": null
+    },
+    {
+      "kind": "matrix",
+      "filename": "capture_20260314_235402_matrix.npy",
+      "content_type": "application/octet-stream",
+      "size_bytes": 9344,
+      "sha256": "f8684fc631590af17a38940febe6ae1cc82699775add179c35da466ef7dbc33c",
+      "uploaded": true,
+      "url": null
+    },
+    {
+      "kind": "packet",
+      "filename": "capture_20260314_235402_packet.json",
+      "content_type": "application/json",
+      "size_bytes": 1290,
+      "sha256": "4eb708aa7e6c2fac32d84425140fbfa9358c91b6fff47140de5ce3c6bf8929db",
+      "uploaded": true,
+      "url": null
+    }
+  ],
+  "created_at": "2026-03-14T23:54:04.353136Z"
+}

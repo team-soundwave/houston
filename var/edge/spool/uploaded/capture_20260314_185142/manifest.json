@@ -1,0 +1,166 @@
+{
+  "capture": {
+    "capture_id": "capture_20260314_185142",
+    "timestamp": "2026-03-14T18:51:42Z",
+    "adcs": {
+      "timestamp": 1773514302.1728168,
+      "position_mcmf": [
+        1737400.0,
+        0.0,
+        100000.0
+      ],
+      "velocity_mps": [
+        0.0,
+        1600.0,
+        0.0
+      ],
+      "attitude_quaternion": [
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "regions": [
+      {
+        "bbox": [
+          1597,
+          935,
+          102,
+          145
+        ],
+        "area": 343.5
+      },
+      {
+        "bbox": [
+          1764,
+          618,
+          156,
+          223
+        ],
+        "area": 511.5
+      },
+      {
+        "bbox": [
+          1076,
+          239,
+          13,
+          21
+        ],
+        "area": 59.5
+      },
+      {
+        "bbox": [
+          1055,
+          177,
+          85,
+          168
+        ],
+        "area": 332.0
+      },
+      {
+        "bbox": [
+          1123,
+          118,
+          26,
+          45
+        ],
+        "area": 120.5
+      }
+    ],
+    "matrix_shape": [
+      36,
+      64
+    ],
+    "matrix_data": [],
+    "region_count": 5,
+    "max_intensity": 43.0,
+    "mean_intensity": 0.7903395061728395,
+    "artifacts": [
+      {
+        "kind": "raw",
+        "filename": "capture_20260314_185142_raw.png",
+        "content_type": "image/png",
+        "size_bytes": 2481566,
+        "sha256": "af230978c2cd0781257fef41207232518571773a45c86d9b037dc7b1811cf768",
+        "uploaded": false,
+        "url": null
+      },
+      {
+        "kind": "intensity",
+        "filename": "capture_20260314_185142_intensity.png",
+        "content_type": "image/png",
+        "size_bytes": 490631,
+        "sha256": "0ab7c4cc0f92ff1a8babdbf721c821dd69e4ed28630a9cf81794bc88ee9dc21c",
+        "uploaded": false,
+        "url": null
+      },
+      {
+        "kind": "mask",
+        "filename": "capture_20260314_185142_mask.png",
+        "content_type": "image/png",
+        "size_bytes": 7234,
+        "sha256": "dc39f13f60c58d2c0608a02ff4fc81ad0c0f8267cb441e4a228d8b4efd369eb1",
+        "uploaded": false,
+        "url": null
+      },
+      {
+        "kind": "matrix",
+        "filename": "capture_20260314_185142_matrix.npy",
+        "content_type": "application/octet-stream",
+        "size_bytes": 9344,
+        "sha256": "c5b01f4978a2fa52419183ebed89cac8d477a076b1f0f131df39f4d2903e9673",
+        "uploaded": false,
+        "url": null
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "kind": "raw",
+      "filename": "capture_20260314_185142_raw.png",
+      "content_type": "image/png",
+      "size_bytes": 2481566,
+      "sha256": "af230978c2cd0781257fef41207232518571773a45c86d9b037dc7b1811cf768",
+      "uploaded": true,
+      "url": null
+    },
+    {
+      "kind": "intensity",
+      "filename": "capture_20260314_185142_intensity.png",
+      "content_type": "image/png",
+      "size_bytes": 490631,
+      "sha256": "0ab7c4cc0f92ff1a8babdbf721c821dd69e4ed28630a9cf81794bc88ee9dc21c",
+      "uploaded": true,
+      "url": null
+    },
+    {
+      "kind": "mask",
+      "filename": "capture_20260314_185142_mask.png",
+      "content_type": "image/png",
+      "size_bytes": 7234,
+      "sha256": "dc39f13f60c58d2c0608a02ff4fc81ad0c0f8267cb441e4a228d8b4efd369eb1",
+      "uploaded": true,
+      "url": null
+    },
+    {
+      "kind": "matrix",
+      "filename": "capture_20260314_185142_matrix.npy",
+      "content_type": "application/octet-stream",
+      "size_bytes": 9344,
+      "sha256": "c5b01f4978a2fa52419183ebed89cac8d477a076b1f0f131df39f4d2903e9673",
+      "uploaded": true,
+      "url": null
+    },
+    {
+      "kind": "packet",
+      "filename": "capture_20260314_185142_packet.json",
+      "content_type": "application/json",
+      "size_bytes": 888,
+      "sha256": "3d51d4910ad069c01677be24bd2b68ab2941b0e71a0ab346701ce2f3a83583a1",
+      "uploaded": true,
+      "url": null
+    }
+  ],
+  "created_at": "2026-03-14T23:36:51.765004Z"
+}
