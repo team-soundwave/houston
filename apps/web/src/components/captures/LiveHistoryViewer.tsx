@@ -28,6 +28,19 @@ function luminance(data: Uint8ClampedArray, index: number) {
   return data[index] * 0.2126 + data[index + 1] * 0.7152 + data[index + 2] * 0.0722;
 }
 
+function histogramThreshold(histogram: Uint32Array, keepFraction: number) {
+  let total = 0;
+  for (const count of histogram) total += count;
+  if (total === 0) return 255;
+  const cutoff = Math.max(1, Math.round(total * (1 - keepFraction)));
+  let seen = 0;
+  for (let value = histogram.length - 1; value >= 0; value -= 1) {
+    seen += histogram[value] ?? 0;
+    if (seen >= cutoff) return value;
+  }
+  return 255;
+}
+
 function scaledDimensions(image: HTMLImageElement, maxWidth = 1280) {
   if (image.naturalWidth <= maxWidth) {
     return { width: image.naturalWidth, height: image.naturalHeight };
@@ -85,19 +98,13 @@ export default function LiveHistoryViewer({ frames }: Props) {
         scratch.height = height;
         const scratchCtx = scratch.getContext("2d", { willReadFrequently: true });
         if (!scratchCtx) return;
-        const overlayCanvas = document.createElement("canvas");
-        overlayCanvas.width = width;
-        overlayCanvas.height = height;
-        const overlayCtx = overlayCanvas.getContext("2d");
-        if (!overlayCtx) return;
-
-        ctx.clearRect(0, 0, width, height);
-        ctx.filter = "grayscale(1) brightness(0.52) contrast(1.04)";
-        ctx.drawImage(latestImage, 0, 0, width, height);
-        ctx.filter = "none";
-
         const overlay = ctx.createImageData(width, height);
+        const accumulated = new Float32Array(width * height);
+        const accumulatedRed = new Float32Array(width * height);
+        const accumulatedGreen = new Float32Array(width * height);
+        const accumulatedBlue = new Float32Array(width * height);
         const pairCount = selectedFrames.length - 1;
+        let strongestPixel = 0;
 
         for (let pairIndex = 0; pairIndex < pairCount; pairIndex += 1) {
           const previous = loaded[selectedFrames[pairIndex].captureId];
@@ -110,18 +117,42 @@ export default function LiveHistoryViewer({ frames }: Props) {
           scratchCtx.clearRect(0, 0, width, height);
           scratchCtx.drawImage(current, 0, 0, width, height);
           const currentData = scratchCtx.getImageData(0, 0, width, height).data;
+          const pairDelta = new Float32Array(width * height);
+          const histogram = new Uint32Array(256);
 
           for (let index = 0; index < currentData.length; index += 4) {
-            const delta = Math.max(0, Math.abs(luminance(currentData, index) - luminance(previousData, index)) - 10);
-            const normalized = delta / 245;
-            const logResponse = Math.log1p(normalized * 22) / Math.log1p(22);
-            const emphasized = Math.pow(logResponse, 2.0);
-            if (emphasized < 0.055) continue;
-            const contribution = Math.min(255, emphasized * 220);
-            overlay.data[index] = Math.min(255, overlay.data[index] + contribution);
-            overlay.data[index + 1] = Math.min(255, overlay.data[index + 1] + contribution);
-            overlay.data[index + 2] = Math.min(255, overlay.data[index + 2] + contribution);
-            overlay.data[index + 3] = Math.min(255, overlay.data[index + 3] + emphasized * 245);
+            const redDelta = Math.abs(currentData[index] - previousData[index]);
+            const greenDelta = Math.abs(currentData[index + 1] - previousData[index + 1]);
+            const blueDelta = Math.abs(currentData[index + 2] - previousData[index + 2]);
+            const luminanceDelta = Math.abs(luminance(currentData, index) - luminance(previousData, index));
+            const pixelIndex = index / 4;
+            const delta = Math.max(
+              luminanceDelta * 1.35,
+              redDelta * 0.9,
+              greenDelta * 0.9,
+              blueDelta * 0.9,
+              (redDelta + greenDelta + blueDelta) / 3,
+            );
+            pairDelta[pixelIndex] = delta;
+            histogram[Math.min(255, Math.round(delta))] += 1;
+          }
+
+          const threshold = Math.max(18, histogramThreshold(histogram, 0.03));
+          const pairProgress = pairCount <= 1 ? 1 : pairIndex / (pairCount - 1);
+          const pairRed = 255 * (1 - pairProgress) + 64 * pairProgress;
+          const pairGreen = 120 * (1 - pairProgress) + 220 * pairProgress;
+          const pairBlue = 48 * (1 - pairProgress) + 255 * pairProgress;
+
+          for (let pixelIndex = 0; pixelIndex < pairDelta.length; pixelIndex += 1) {
+            const normalized = Math.max(0, pairDelta[pixelIndex] - threshold) / Math.max(1, 255 - threshold);
+            if (normalized <= 0) continue;
+            const boosted = Math.pow(normalized, 0.42) * 4.2;
+            if (boosted < 0.18) continue;
+            accumulated[pixelIndex] += boosted;
+            accumulatedRed[pixelIndex] += boosted * pairRed;
+            accumulatedGreen[pixelIndex] += boosted * pairGreen;
+            accumulatedBlue[pixelIndex] += boosted * pairBlue;
+            strongestPixel = Math.max(strongestPixel, accumulated[pixelIndex]);
           }
 
           if (pairIndex % 2 === 1) {
@@ -131,8 +162,26 @@ export default function LiveHistoryViewer({ frames }: Props) {
         }
 
         if (cancelled) return;
-        overlayCtx.putImageData(overlay, 0, 0);
-        ctx.drawImage(overlayCanvas, 0, 0, width, height);
+        ctx.fillStyle = "#020406";
+        ctx.fillRect(0, 0, width, height);
+        if (strongestPixel > 0) {
+          for (let pixelIndex = 0; pixelIndex < accumulated.length; pixelIndex += 1) {
+            const total = accumulated[pixelIndex];
+            if (total <= 0) continue;
+            const normalized = total / strongestPixel;
+            if (normalized < 0.07) continue;
+            const emphasized = Math.pow(normalized, 0.34);
+            const outputIndex = pixelIndex * 4;
+            const baseRed = accumulatedRed[pixelIndex] / total;
+            const baseGreen = accumulatedGreen[pixelIndex] / total;
+            const baseBlue = accumulatedBlue[pixelIndex] / total;
+            overlay.data[outputIndex] = Math.min(255, Math.round(baseRed * emphasized));
+            overlay.data[outputIndex + 1] = Math.min(255, Math.round(baseGreen * emphasized));
+            overlay.data[outputIndex + 2] = Math.min(255, Math.round(baseBlue * emphasized));
+            overlay.data[outputIndex + 3] = Math.min(255, Math.round(255 * Math.max(0.3, emphasized)));
+          }
+        }
+        ctx.putImageData(overlay, 0, 0);
         setError(null);
       } catch (err) {
         if (!cancelled) {
@@ -168,12 +217,12 @@ export default function LiveHistoryViewer({ frames }: Props) {
 
         <div className="space-y-2">
           <div className="text-[10px] font-mono uppercase text-muted-foreground">
-            Composite over {selectedFrames.length} captures / {Math.max(0, selectedFrames.length - 1)} diffs
+            Summed diff map over {selectedFrames.length} captures / {Math.max(0, selectedFrames.length - 1)} diffs
           </div>
-          <div className="h-3 rounded-full bg-gradient-to-r from-muted-foreground/20 via-muted-foreground/45 to-foreground" />
+          <div className="h-3 rounded-full bg-gradient-to-r from-[#ff7a30] via-[#ffd452] to-[#56d8ff]" />
           <div className="flex items-center justify-between text-[10px] font-mono uppercase text-muted-foreground">
-            <span>Lower accumulated change</span>
-            <span>Higher accumulated change</span>
+            <span>Earliest diffs</span>
+            <span>Latest diffs</span>
           </div>
         </div>
       </div>

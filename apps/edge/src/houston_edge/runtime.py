@@ -27,7 +27,7 @@ class EdgeRuntime:
         self.pipeline = None if self._is_bridge_mode else CapturePipeline(settings)
         self.bridge = BridgeIngestor(settings) if self._is_bridge_mode else None
         self.spool = SpoolStore(settings.spool_dir)
-        self.state = RuntimeState()
+        self.state = RuntimeState(capturing_enabled=settings.start_capturing)
         self._manual_captures: asyncio.Queue[str] = asyncio.Queue()
         self._tasks: list[asyncio.Task] = []
         self._http_client = httpx.AsyncClient(timeout=30.0)
@@ -40,7 +40,7 @@ class EdgeRuntime:
             asyncio.create_task(self._ingest_loop(), name="capture"),
             asyncio.create_task(self._upload_loop(), name="upload"),
         ]
-        if not self._is_bridge_mode:
+        if not self._is_bridge_mode and self.state.capturing_enabled:
             await self.trigger_capture("startup")
 
     async def stop(self) -> None:

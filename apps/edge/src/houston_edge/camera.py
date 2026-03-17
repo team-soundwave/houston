@@ -145,5 +145,5 @@ def _load_images(sample_dir: Path) -> list[Path]:
         return []
     files: list[Path] = []
     for pattern in ("*.png", "*.jpg", "*.jpeg"):
-        files.extend(sorted(sample_dir.glob(pattern)))
+        files.extend(sorted(sample_dir.rglob(pattern)))
     return files

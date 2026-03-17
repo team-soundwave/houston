@@ -14,6 +14,7 @@ class EdgeSettings(BaseSettings):
     ground_ws_url: str = "ws://127.0.0.1:8000/ws/edge"
     ground_http_url: str = "http://127.0.0.1:8000"
     edge_mode: str = "mock"
+    start_capturing: bool = True
     capture_interval_seconds: float = 15.0
     heartbeat_interval_seconds: float = 5.0
     upload_retry_seconds: float = 3.0
