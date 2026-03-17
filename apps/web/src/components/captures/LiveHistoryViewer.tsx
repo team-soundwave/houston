@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Sparkles } from "lucide-react";
-import { Badge } from "../ui/badge";
 
 type HistoryFrame = {
   captureId: string;
@@ -24,24 +22,6 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 
 function frameLabel(frame: HistoryFrame): string {
   return `${frame.captureId.slice(-8).toUpperCase()} · ${new Date(frame.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
-}
-
-function interpolateColor(position: number) {
-  const stops = [
-    { at: 0.0, rgb: [255, 74, 74] },
-    { at: 0.25, rgb: [255, 168, 76] },
-    { at: 0.5, rgb: [250, 225, 92] },
-    { at: 0.72, rgb: [84, 198, 255] },
-    { at: 1.0, rgb: [170, 110, 255] },
-  ];
-  for (let index = 0; index < stops.length - 1; index += 1) {
-    const left = stops[index];
-    const right = stops[index + 1];
-    if (position < left.at || position > right.at) continue;
-    const mix = (position - left.at) / (right.at - left.at);
-    return left.rgb.map((value, channel) => Math.round(value + (right.rgb[channel] - value) * mix));
-  }
-  return stops.at(-1)?.rgb ?? [170, 110, 255];
 }
 
 function luminance(data: Uint8ClampedArray, index: number) {
@@ -131,18 +111,16 @@ export default function LiveHistoryViewer({ frames }: Props) {
           scratchCtx.drawImage(current, 0, 0, width, height);
           const currentData = scratchCtx.getImageData(0, 0, width, height).data;
 
-          const position = pairCount === 1 ? 1 : pairIndex / (pairCount - 1);
-          const [red, green, blue] = interpolateColor(position);
-
           for (let index = 0; index < currentData.length; index += 4) {
             const delta = Math.max(0, Math.abs(luminance(currentData, index) - luminance(previousData, index)) - 10);
             const normalized = delta / 245;
             const logResponse = Math.log1p(normalized * 22) / Math.log1p(22);
             const emphasized = Math.pow(logResponse, 2.0);
             if (emphasized < 0.055) continue;
-            overlay.data[index] = Math.min(255, overlay.data[index] + red * emphasized);
-            overlay.data[index + 1] = Math.min(255, overlay.data[index + 1] + green * emphasized);
-            overlay.data[index + 2] = Math.min(255, overlay.data[index + 2] + blue * emphasized);
+            const contribution = Math.min(255, emphasized * 220);
+            overlay.data[index] = Math.min(255, overlay.data[index] + contribution);
+            overlay.data[index + 1] = Math.min(255, overlay.data[index + 1] + contribution);
+            overlay.data[index + 2] = Math.min(255, overlay.data[index + 2] + contribution);
             overlay.data[index + 3] = Math.min(255, overlay.data[index + 3] + emphasized * 245);
           }
 
@@ -192,20 +170,12 @@ export default function LiveHistoryViewer({ frames }: Props) {
           <div className="text-[10px] font-mono uppercase text-muted-foreground">
             Composite over {selectedFrames.length} captures / {Math.max(0, selectedFrames.length - 1)} diffs
           </div>
-          <div className="h-3 rounded-full bg-gradient-to-r from-red-500 via-amber-400 via-yellow-300 via-sky-400 to-violet-500" />
+          <div className="h-3 rounded-full bg-gradient-to-r from-muted-foreground/20 via-muted-foreground/45 to-foreground" />
           <div className="flex items-center justify-between text-[10px] font-mono uppercase text-muted-foreground">
-            <span>Earlier changes</span>
-            <span>Latest changes</span>
+            <span>Lower accumulated change</span>
+            <span>Higher accumulated change</span>
           </div>
         </div>
-      </div>
-
-      <div className="flex items-center gap-2 text-[10px] font-mono uppercase text-muted-foreground">
-        <Badge variant="secondary" className="text-[9px]">
-          <Sparkles className="h-3 w-3 mr-1" />
-          Rainbow-coded time progression
-        </Badge>
-        <span>Red = earliest change, violet = latest change</span>
       </div>
 
       <div className="relative flex-1 min-h-[560px] rounded-xl border bg-muted/[0.03] overflow-hidden">

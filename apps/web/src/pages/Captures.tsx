@@ -58,17 +58,19 @@ export default function Captures() {
   const previousRawUrl = previousCapture ? artifactUrl(previousCapture, "raw") : null;
   const diffAvailable = Boolean(currentRawUrl && previousRawUrl);
   const historyFrames = useMemo(() => {
-    const frames = [...orderedCaptures]
+    if (!selectedCapture) return [];
+    const selectedIndex = orderedCaptures.findIndex((capture) => capture.capture_id === selectedCapture.capture_id);
+    if (selectedIndex < 0) return [];
+    return orderedCaptures
+      .slice(selectedIndex)
       .reverse()
       .map((capture) => ({ capture, url: artifactUrl(capture, "raw") }))
-      .filter((entry) => entry.url);
-    const endIndex = selectedCapture ? frames.findIndex((entry) => entry.capture.capture_id === selectedCapture.capture_id) : frames.length - 1;
-    const visibleFrames = endIndex >= 0 ? frames.slice(0, endIndex + 1) : frames;
-    return visibleFrames.map((entry) => ({
-      captureId: entry.capture.capture_id,
-      timestamp: entry.capture.timestamp,
-      url: entry.url as string,
-    }));
+      .filter((entry) => entry.url)
+      .map((entry) => ({
+        captureId: entry.capture.capture_id,
+        timestamp: entry.capture.timestamp,
+        url: entry.url as string,
+      }));
   }, [orderedCaptures, selectedCapture]);
   const liveHistoryAvailable = historyFrames.length > 1;
 
@@ -196,7 +198,7 @@ export default function Captures() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8 items-start">
         {/* Sidebar */}
-        <aside className="lg:sticky lg:top-6 flex flex-col gap-6">
+        <aside className="lg:sticky lg:top-6 flex flex-col gap-6 min-h-0">
           <Card className="flex flex-col shadow-none border-border/60 overflow-hidden max-h-[600px]">
             <CardHeader className="p-4 border-b bg-muted/20 flex flex-row items-center justify-between shrink-0">
               <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80 flex items-center gap-2">
@@ -204,7 +206,7 @@ export default function Captures() {
               </CardTitle>
               <Badge variant="secondary" className="font-mono text-[9px] h-4">{orderedCaptures.length}</Badge>
             </CardHeader>
-            <ScrollArea className="flex-1">
+            <ScrollArea className="h-[520px]">
               <div className="divide-y divide-border/40">
                 {orderedCaptures.map((capture) => {
                   const isSelected = capture.capture_id === selectedCapture?.capture_id;
@@ -406,7 +408,7 @@ export default function Captures() {
                   <CardHeader className="p-5 border-b bg-muted/10">
                     <CardTitle className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Intensity History (Last 40)</CardTitle>
                   </CardHeader>
-                  <CardContent className="p-6 h-[350px]">
+                  <CardContent className="p-6 h-[350px] min-w-0">
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={historicalData}>
                         <defs>
@@ -432,7 +434,7 @@ export default function Captures() {
                   <CardHeader className="p-5 border-b bg-muted/10">
                     <CardTitle className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Region Distribution</CardTitle>
                   </CardHeader>
-                  <CardContent className="p-6 h-[350px]">
+                  <CardContent className="p-6 h-[350px] min-w-0">
                     {areaGraphData.length > 0 ? (
                       <ResponsiveContainer width="100%" height="100%">
                         <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 0 }}>

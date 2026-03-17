@@ -207,7 +207,7 @@ export default function Overview() {
               </div>
               <Badge variant="outline" className="text-[9px] font-bold">LIVE_INGEST</Badge>
             </CardHeader>
-            <CardContent className="p-6 h-[300px]">
+            <CardContent className="p-6 h-[300px] min-w-0">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={linkHistory}>
                   <defs>
@@ -301,7 +301,7 @@ export default function Overview() {
                     <span className="font-mono">{formatBytes(linkMetrics.rawSourceBytes)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Compression savings ({Math.round(linkMetrics.compressionRatio * 100)}%)</span>
+                    <span>Compression savings</span>
                     <span className="font-mono">{formatBytes(linkMetrics.rawSavingsBytes)}</span>
                   </div>
                   <div className="flex justify-between">

@@ -21,7 +21,7 @@ DEFAULT_PORTS = {"ground_api": "8000", "ground_web": "5173", "edge_api": "8001"}
 def main() -> int:
     args = parse_args()
     peer_ip = None if args.role == "all" else args.peer_ip or input(f"Enter the {peer_label(args.role)} IP: ").strip()
-    local_ip = discover_local_ip(peer_ip)
+    local_ip = "127.0.0.1" if args.role == "all" else discover_local_ip(peer_ip)
     print_summary(args.role, local_ip, peer_ip)
     ensure_dependencies(args.role)
     if args.role == "ground":
@@ -92,7 +92,7 @@ def run_all(local_ip: str) -> int:
 
 def ground_env(local_ip: str, peer_ip: str) -> dict[str, str]:
     env = os.environ.copy()
-    env["HOUSTON_GROUND_HOST"] = "0.0.0.0"
+    env["HOUSTON_GROUND_HOST"] = "127.0.0.1" if local_ip == "127.0.0.1" else "0.0.0.0"
     env["HOUSTON_GROUND_PORT"] = DEFAULT_PORTS["ground_api"]
     env["VITE_GROUND_HTTP_BASE"] = f"http://{local_ip}:{DEFAULT_PORTS['ground_api']}"
     env["VITE_GROUND_WS_URL"] = f"ws://{local_ip}:{DEFAULT_PORTS['ground_api']}/ws/ui"
@@ -100,9 +100,10 @@ def ground_env(local_ip: str, peer_ip: str) -> dict[str, str]:
     return env
 
 def ground_processes(env: dict[str, str], role: str) -> list[subprocess.Popen[str]]:
+    host = env.get("HOUSTON_GROUND_HOST", "0.0.0.0")
     processes = [
         start_process(
-            ["uv", "run", "--package", "houston-ground", "uvicorn", "houston_ground.main:app", "--host", "0.0.0.0", "--port", DEFAULT_PORTS["ground_api"]],
+            ["uv", "run", "--package", "houston-ground", "uvicorn", "houston_ground.main:app", "--host", host, "--port", DEFAULT_PORTS["ground_api"]],
             ROOT,
             env,
             "ground",
@@ -111,7 +112,7 @@ def ground_processes(env: dict[str, str], role: str) -> list[subprocess.Popen[st
     if should_run_vite(role):
         processes.append(
             start_process(
-                ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", DEFAULT_PORTS["ground_web"]],
+                ["npm", "run", "dev", "--", "--host", host, "--port", DEFAULT_PORTS["ground_web"]],
                 WEB_DIR,
                 env,
                 "web",
@@ -121,17 +122,40 @@ def ground_processes(env: dict[str, str], role: str) -> list[subprocess.Popen[st
 
 def edge_env(peer_ip: str) -> dict[str, str]:
     env = os.environ.copy()
-    env["HOUSTON_EDGE_MODE"] = "real"
+    env["HOUSTON_EDGE_MODE"] = env.get("HOUSTON_EDGE_MODE", "real")
     env["HOUSTON_GROUND_WS_URL"] = f"ws://{peer_ip}:{DEFAULT_PORTS['ground_api']}/ws/edge"
     env["HOUSTON_GROUND_HTTP_URL"] = f"http://{peer_ip}:{DEFAULT_PORTS['ground_api']}"
-    env["HOUSTON_DEVICE_ID"] = f"edge-{socket.gethostname().lower()}"
+    env["HOUSTON_DEVICE_ID"] = env.get("HOUSTON_DEVICE_ID", f"edge-{socket.gethostname().lower()}")
     env["HOUSTON_ADCS_SOURCE"] = env.get("HOUSTON_ADCS_SOURCE", "mock")
     return env
 
 def edge_processes(env: dict[str, str]) -> list[subprocess.Popen[str]]:
+    host = "127.0.0.1" if env.get("HOUSTON_GROUND_HTTP_URL", "").startswith("http://127.0.0.1:") else "0.0.0.0"
+    if env.get("HOUSTON_EDGE_MODE") == "mock":
+        env["HOUSTON_CAPTURE_SOURCE"] = env.get("HOUSTON_CAPTURE_SOURCE", "simulator")
+        print("Edge mode : mock")
+        print(f"Capture   : {env['HOUSTON_CAPTURE_SOURCE']}")
+        print("Camera    : generated simulator frames")
+        print("ADCS      : mock")
+        return [
+            start_process(
+                ["uv", "run", "--package", "houston-edge", "uvicorn", "houston_edge.main:app", "--host", host, "--port", DEFAULT_PORTS["edge_api"]],
+                ROOT,
+                env,
+                "edge",
+            )
+        ]
+
     cubesat_dir = find_cubesat_dir()
     processes = []
-    if cubesat_dir is not None:
+    if env.get("HOUSTON_CAPTURE_SOURCE") == "bridge" and cubesat_dir is not None:
+        env["HOUSTON_BRIDGE_WATCH_DIR"] = env.get("HOUSTON_BRIDGE_WATCH_DIR", str(cubesat_dir))
+        processes.append(start_process([sys.executable, "main.py"], cubesat_dir, os.environ.copy(), "legacy"))
+        print(f"Edge mode : real")
+        print(f"Capture   : bridge ({cubesat_dir})")
+        print("Camera    : existing cubesat/main.py")
+        print("ADCS      : legacy cubesat placeholder")
+    elif cubesat_dir is not None and "HOUSTON_CAPTURE_SOURCE" not in env:
         env["HOUSTON_CAPTURE_SOURCE"] = "bridge"
         env["HOUSTON_BRIDGE_WATCH_DIR"] = str(cubesat_dir)
         processes.append(start_process([sys.executable, "main.py"], cubesat_dir, os.environ.copy(), "legacy"))
@@ -140,15 +164,15 @@ def edge_processes(env: dict[str, str]) -> list[subprocess.Popen[str]]:
         print("Camera    : existing cubesat/main.py")
         print("ADCS      : legacy cubesat placeholder")
     else:
-        env["HOUSTON_CAPTURE_SOURCE"] = "picamera"
+        env["HOUSTON_CAPTURE_SOURCE"] = env.get("HOUSTON_CAPTURE_SOURCE", "picamera")
         print("Edge mode : real")
-        print("Capture   : picamera")
+        print(f"Capture   : {env['HOUSTON_CAPTURE_SOURCE']}")
         print("Camera    : direct Houston edge capture")
         print("ADCS      : unavailable unless HOUSTON_ADCS_COMMAND is configured")
-        print("No cubesat/main.py found next to Houston. Starting direct picamera mode.")
+        print("No cubesat/main.py found next to Houston. Starting direct edge capture mode.")
     processes.append(
         start_process(
-            ["uv", "run", "--package", "houston-edge", "uvicorn", "houston_edge.main:app", "--host", "0.0.0.0", "--port", DEFAULT_PORTS["edge_api"]],
+            ["uv", "run", "--package", "houston-edge", "uvicorn", "houston_edge.main:app", "--host", host, "--port", DEFAULT_PORTS["edge_api"]],
             ROOT,
             env,
             "edge",
@@ -166,6 +190,8 @@ def find_cubesat_dir() -> Path | None:
 
 
 def ensure_edge_dependencies() -> None:
+    if os.environ.get("HOUSTON_EDGE_MODE") == "mock":
+        return
     cubesat_dir = find_cubesat_dir()
     if cubesat_dir is not None:
         ensure_python_module(sys.executable, "numpy", "numpy")
@@ -188,7 +214,7 @@ def ensure_python_module(python_exe: str, module: str, package: str, required: b
         print(f"Warning: unable to install optional dependency {module}.")
 
 def should_run_vite(role: str) -> bool:
-    return role == "ground" and shutil.which("npm") is not None
+    return role in {"ground", "all"} and shutil.which("npm") is not None
 
 def dashboard_url(local_ip: str, role: str) -> str:
     return f"http://{local_ip}:{DEFAULT_PORTS['ground_web' if should_run_vite(role) else 'ground_api']}"
