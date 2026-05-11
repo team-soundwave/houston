@@ -1,0 +1,106 @@
+{
+  "capture_id": "20260314T212253-02dff3",
+  "timestamp": "2026-03-14T21:22:53.239527Z",
+  "adcs": {
+    "timestamp": 1773523373.239533,
+    "position_mcmf": [
+      1737400.0,
+      0.0,
+      100000.0
+    ],
+    "velocity_mps": [
+      0.0,
+      1600.0,
+      0.0
+    ],
+    "attitude_quaternion": [
+      1.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "regions": [
+    {
+      "bbox": [
+        1579,
+        777,
+        67,
+        67
+      ],
+      "area": 3465.0
+    },
+    {
+      "bbox": [
+        1221,
+        642,
+        55,
+        55
+      ],
+      "area": 2328.5
+    },
+    {
+      "bbox": [
+        862,
+        508,
+        43,
+        43
+      ],
+      "area": 1424.5
+    },
+    {
+      "bbox": [
+        503,
+        373,
+        31,
+        31
+      ],
+      "area": 726.0
+    }
+  ],
+  "matrix_shape": [
+    36,
+    64
+  ],
+  "region_count": 4,
+  "max_intensity": 63.0,
+  "mean_intensity": 1.8758762538580247,
+  "artifacts": [
+    {
+      "kind": "raw",
+      "filename": "20260314T212253-02dff3_raw.png",
+      "content_type": "image/png",
+      "size_bytes": 4613880,
+      "sha256": "5bd64d1db9554d5eb8740b5b88cce1de883abe901a5c806bb360970a7af267c6",
+      "uploaded": false,
+      "url": null
+    },
+    {
+      "kind": "intensity",
+      "filename": "20260314T212253-02dff3_intensity.png",
+      "content_type": "image/png",
+      "size_bytes": 724229,
+      "sha256": "d7b72bc552afaa12703e0c57c6b9b12638966a72a61e599a623c73386bf47139",
+      "uploaded": false,
+      "url": null
+    },
+    {
+      "kind": "mask",
+      "filename": "20260314T212253-02dff3_mask.png",
+      "content_type": "image/png",
+      "size_bytes": 5434,
+      "sha256": "1c896fe6ef70912a9e769ca324c1acefd3c46f2f887c1a91b48982020116272f",
+      "uploaded": false,
+      "url": null
+    },
+    {
+      "kind": "matrix",
+      "filename": "20260314T212253-02dff3_matrix.npy",
+      "content_type": "application/octet-stream",
+      "size_bytes": 9344,
+      "sha256": "a2fec4c3b1b9ffdc7a6f9bc2317d37f7c4638c46b37a993886647b88f3e782b7",
+      "uploaded": false,
+      "url": null
+    }
+  ]
+}
